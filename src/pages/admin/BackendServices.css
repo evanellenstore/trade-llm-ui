@@ -1,0 +1,124 @@
+.admin-services-page {
+  padding: 0.5rem 0 2rem;
+}
+
+.admin-services-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.services-hero-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+  color: white;
+  border-radius: 24px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.section-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
+  opacity: 0.85;
+}
+
+.section-copy {
+  margin: 0.35rem 0 0;
+  max-width: 620px;
+  opacity: 0.92;
+}
+
+.services-create-btn {
+  background: white !important;
+  color: #0f172a !important;
+  border: none !important;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.services-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  border: none;
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.metric-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.metric-card h3 {
+  margin: 0.25rem 0 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.services-table-card {
+  border: none;
+  border-radius: 20px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.table-subtext {
+  margin: 0;
+  color: #64748b;
+}
+
+.services-table th {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.service-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.service-name-cell span {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 0.4rem;
+}
+
+@media (max-width: 900px) {
+  .services-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .services-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .services-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
