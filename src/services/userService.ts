@@ -13,7 +13,7 @@ export interface UserRecord {
   password?: string;
   tenantId?: number;
   roleId?: number;
-  active?: boolean;
+  active?: boolean | number;
 }
 
 interface UserPayload {
@@ -28,7 +28,7 @@ interface UserPayload {
   tenantName?: string;
   tenant?: string;
   status?: string;
-  active?: boolean;
+  active?: boolean | number;
   lastName?: string | null;
   password?: string;
   tenantId?: number;
@@ -64,12 +64,13 @@ export const userService = {
     username: string;
     email: string;
     password: string;
+    role?: string;
     tenantId?: number;
     tenantCode?: string;
     roleId?: number;
     status?: string;
     enabled?: boolean;
-    active?: boolean;
+    active?: boolean | number;
     accountNonLocked?: boolean;
     credentialsNonExpired?: boolean;
     accountNonExpired?: boolean;
@@ -84,12 +85,13 @@ export const userService = {
       username: string;
       email: string;
       password: string;
+      role?: string;
       tenantId?: number;
       tenantCode?: string;
       roleId?: number;
       status?: string;
       enabled?: boolean;
-      active?: boolean;
+      active?: boolean | number;
       accountNonLocked?: boolean;
       credentialsNonExpired?: boolean;
       accountNonExpired?: boolean;

@@ -2,11 +2,10 @@ import { Card, Table, Button, Badge, Modal, Form, Alert, Spinner } from 'react-b
 import { useEffect, useState } from 'react';
 import { userService, type UserRecord } from '../../services/userService';
 
-const roleOptions = ['ADMIN', 'TENANT-ADMIN', 'USER'] as const;
+const roleOptions = ['ADMIN', 'TREADER'] as const;
 const roleIdMap: Record<string, number> = {
   ADMIN: 1,
-  'TENANT-ADMIN': 2,
-  USER: 3,
+  TREADER: 2,
 };
 
 type FormState = {
@@ -14,15 +13,15 @@ type FormState = {
   email: string;
   password: string;
   role: string;
-  status: string;
+  active: boolean;
 };
 
 const emptyForm = (): FormState => ({
   username: '',
   email: '',
   password: '',
-  role: 'USER',
-  status: 'Active',
+  role: 'TREADER',
+  active: true,
 });
 
 const UserList = () => {
@@ -56,9 +55,7 @@ const UserList = () => {
     switch (role) {
       case 'ADMIN':
         return 'danger';
-      case 'TENANT-ADMIN':
-        return 'warning';
-      case 'USER':
+      case 'TREADER':
         return 'info';
       default:
         return 'secondary';
@@ -82,8 +79,8 @@ const UserList = () => {
       username: user.username ?? user.name ?? '',
       email: user.email ?? '',
       password: user.password ?? '',
-      role: user.role ?? 'USER',
-      status: user.status ?? 'Active',
+      role: user.role === 'ADMIN' ? 'ADMIN' : 'TREADER',
+      active: Boolean(user.active ?? true),
     });
     setShowModal(true);
   };
@@ -95,12 +92,8 @@ const UserList = () => {
       username: formData.username.trim(),
       email: formData.email.trim(),
       password: formData.password || 'Welcome123!',
-      roleId: roleIdMap[formData.role],
-      status: formData.status,
-      enabled: true,
-      accountNonLocked: true,
-      credentialsNonExpired: true,
-      accountNonExpired: true,
+      role: formData.role,
+      active: formData.active,
     };
 
     try {
@@ -238,8 +231,8 @@ const UserList = () => {
             <Form.Group className="mb-3">
               <Form.Label>Status</Form.Label>
               <Form.Select
-                value={formData.status}
-                onChange={(event) => setFormData((current) => ({ ...current, status: event.target.value }))}
+                value={formData.active ? 'Active' : 'Inactive'}
+                onChange={(event) => setFormData((current) => ({ ...current, active: event.target.value === 'Active' }))}
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>

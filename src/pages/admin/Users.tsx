@@ -30,6 +30,18 @@ type UserFormData = {
   active: boolean;
 };
 
+const normalizeRoleValue = (role: string) => {
+  const normalizedRole = role?.toUpperCase();
+  if (normalizedRole === "ADMIN") return "ADMIN";
+  if (normalizedRole === "TREADER") return "TREADER";
+  return "TREADER";
+};
+
+const mapRoleToBackend = (role: string) => {
+  if (role === "ADMIN") return "ADMIN";
+  return "TREADER";
+};
+
 const Users: React.FC = () => {
   const { t } = useTranslation();
   const [users, setUsers] = useState<UserDto[]>([]);
@@ -41,7 +53,7 @@ const Users: React.FC = () => {
 
   const [formData, setFormData] = useState<UserFormData>({
     username: "",
-    role: "ADMIN",
+    role: "TREADER",
     email: "",
     password: "",
     active: true,
@@ -69,7 +81,7 @@ const Users: React.FC = () => {
   // 🔹 Open create modal
   const handleAdd = () => {
     setEditingUser(null);
-    setFormData({ username: "", role: "ADMIN", email: "", password: "", active: true });
+    setFormData({ username: "", role: "TREADER", email: "", password: "", active: true });
     setShowModal(true);
   };
 
@@ -78,10 +90,10 @@ const Users: React.FC = () => {
     setEditingUser(user);
     setFormData({
       username: user.username ?? "",
-      role: user.role ?? "ADMIN",
+      role: normalizeRoleValue(user.role ?? "TREADER"),
       email: user.email ?? "",
       password: "",
-      active: user.active ?? true,
+      active: Boolean(user.active ?? true),
     });
     setShowModal(true);
   };
@@ -91,7 +103,7 @@ const Users: React.FC = () => {
     try {
       const payload = {
         username: formData.username,
-        role: formData.role,
+        role: mapRoleToBackend(formData.role),
         email: formData.email,
         password: formData.password,
         active: formData.active,
@@ -259,8 +271,8 @@ const Users: React.FC = () => {
                   setFormData({ ...formData, role: e.target.value })
                 }
               >
-                <option value="ADMIN">{t('users.admin')}</option>
-                <option value="TRADER">{t('users.trader')}</option>
+                <option value="ADMIN">Admin</option>
+                <option value="TREADER">TREADER</option>
               </Form.Select>
             </Form.Group>
           </Form>
