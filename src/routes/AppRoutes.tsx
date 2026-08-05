@@ -8,7 +8,7 @@ import AdminDashboard from '../pages/admin/AdminDashboard';
 import TenantList from '../pages/admin/TenantList';
 import UserList from '../pages/admin/UserList';
 import DocumentList from '../pages/admin/DocumentList';
-import BrokerAngelOneDocs from '../pages/admin/BrokerAngelOneDocs';
+import BrokerAngelOneDocs from '../pages/admin/BrokerAngelOne';
 import BrokerLogin from '../pages/admin/BrokerLogin';
 import EDITransform from '../pages/admin/EDITransform';
 import Transactions from '../pages/admin/Transactions';

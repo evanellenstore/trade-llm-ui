@@ -25,6 +25,13 @@
   font-size: 13px;
 }
 
+.field-value {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .broker-section {
   display: grid;
   grid-template-columns: 1fr;

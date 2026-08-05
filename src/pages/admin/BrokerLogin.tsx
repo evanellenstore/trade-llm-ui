@@ -5,6 +5,7 @@ import './BrokerLogin.css';
 const BrokerLogin: React.FC = () => {
   const [ttop, setTtop] = useState('');
   const [relogin, setRelogin] = useState(false);
+  const [exchange, setExchange] = useState('NSE');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
@@ -30,6 +31,13 @@ const BrokerLogin: React.FC = () => {
 
         <section className="broker-section">
           <h3 className="section-heading">Admin tool</h3>
+          <label className="label">Exchange (NSE / BSE)</label>
+          <div className="field-value">{exchange}</div>
+          <select className="input" value={exchange} onChange={(e) => setExchange(e.target.value)}>
+            <option value="NSE">NSE</option>
+            <option value="BSE">BSE</option>
+          </select>
+
           <label className="label">TTOP Identifier</label>
           <input
             className="input"
