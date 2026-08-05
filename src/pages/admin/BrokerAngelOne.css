@@ -65,12 +65,22 @@
 .section-header,
 .section-header-sm {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
   border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+.section-header > div {
+  min-width: 0;
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .section-header-sm {

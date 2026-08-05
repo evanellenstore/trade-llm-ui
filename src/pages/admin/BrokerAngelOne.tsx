@@ -26,6 +26,9 @@ const BrokerAngelOne: React.FC = () => {
   const [subscriptionSymbols, setSubscriptionSymbols] = useState<Array<{ token: string; symbol: string }>>([]);
   const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set());
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
+  const [sectionSessionOpen, setSectionSessionOpen] = useState(true);
+  const [sectionFnoOpen, setSectionFnoOpen] = useState(true);
+  const [sectionSubscriptionsOpen, setSectionSubscriptionsOpen] = useState(true);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -297,50 +300,61 @@ const BrokerAngelOne: React.FC = () => {
             <h4>AngelOne broker session</h4>
             <p className="section-text">Authenticate a broker session with TTOP, or refresh an existing AngelOne session.</p>
           </div>
-          <span className="badge badge-info">Broker access</span>
+          <div className="section-header-actions">
+            <button
+              className="button button-outline-secondary button-small"
+              type="button"
+              onClick={() => setSectionSessionOpen((value) => !value)}
+              aria-label={sectionSessionOpen ? 'Collapse broker session section' : 'Expand broker session section'}
+            >
+              {sectionSessionOpen ? '−' : '+'}
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleLogin} className="form-stack">
-          {showInput ? (
-            <div className="form-group">
-              <label className="form-label">TTOP</label>
-              <input
-                className="form-control"
-                value={ttop}
-                onChange={(event) => setTtop(event.target.value)}
-                placeholder="Enter trader TTOP"
-                aria-label="Enter trader TTOP"
-              />
-              <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
-            </div>
-          ) : (
-            <div className="notice-box">
-              <div>
-                <div className="notice-title">Re-login mode</div>
-                <p className="form-text">TTOP input is hidden while re-login is active.</p>
+        {sectionSessionOpen && (
+          <form onSubmit={handleLogin} className="form-stack">
+            {showInput ? (
+              <div className="form-group">
+                <label className="form-label">TTOP</label>
+                <input
+                  className="form-control"
+                  value={ttop}
+                  onChange={(event) => setTtop(event.target.value)}
+                  placeholder="Enter trader TTOP"
+                  aria-label="Enter trader TTOP"
+                />
+                <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
               </div>
-              <button className="button button-link" type="button" onClick={() => setShowInput(true)}>
-                Show input
-              </button>
-            </div>
-          )}
-
-          <div className="button-group">
-            <button className="button button-primary" type="submit" disabled={loading} aria-live="polite">
-              {loading ? <span className="spinner" aria-hidden="true" /> : null}
-              {loading ? 'Checking…' : 'Login with TTOP'}
-            </button>
-            <button className="button button-secondary" type="button" disabled={reloginLoading} onClick={handleRelogin}>
-              {reloginLoading ? <span className="spinner" aria-hidden="true" /> : null}
-              {reloginLoading ? 'Re-login…' : 'Re-login'}
-            </button>
-            {showInput && (
-              <button className="button button-secondary" type="button" onClick={() => setTtop('')}>
-                Reset
-              </button>
+            ) : (
+              <div className="notice-box">
+                <div>
+                  <div className="notice-title">Re-login mode</div>
+                  <p className="form-text">TTOP input is hidden while re-login is active.</p>
+                </div>
+                <button className="button button-link" type="button" onClick={() => setShowInput(true)}>
+                  Show input
+                </button>
+              </div>
             )}
-          </div>
-        </form>
+
+            <div className="button-group">
+              <button className="button button-primary" type="submit" disabled={loading} aria-live="polite">
+                {loading ? <span className="spinner" aria-hidden="true" /> : null}
+                {loading ? 'Checking…' : 'Login with TTOP'}
+              </button>
+              <button className="button button-secondary" type="button" disabled={reloginLoading} onClick={handleRelogin}>
+                {reloginLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                {reloginLoading ? 'Re-login…' : 'Re-login'}
+              </button>
+              {showInput && (
+                <button className="button button-secondary" type="button" onClick={() => setTtop('')}>
+                  Reset
+                </button>
+              )}
+            </div>
+          </form>
+        )}
       </section>
 
       <section className="section-card">
@@ -349,13 +363,23 @@ const BrokerAngelOne: React.FC = () => {
             <h5>FNO master import</h5>
             <p className="section-text">Refresh the broker database with the latest FNO master data before loading symbols.</p>
           </div>
-        </div>
-        <div className="button-group">
-          <button className="button button-primary" type="button" onClick={handleSaveFnoStocks} disabled={fnoStockLoading}>
-            {fnoStockLoading ? <span className="spinner" aria-hidden="true" /> : null}
-            {fnoStockLoading ? 'Syncing…' : 'Sync FNO master data'}
+          <button
+            className="button button-outline-secondary button-small"
+            type="button"
+            onClick={() => setSectionFnoOpen((value) => !value)}
+            aria-label={sectionFnoOpen ? 'Collapse FNO master import section' : 'Expand FNO master import section'}
+          >
+            {sectionFnoOpen ? '−' : '+'}
           </button>
         </div>
+        {sectionFnoOpen && (
+          <div className="button-group">
+            <button className="button button-primary" type="button" onClick={handleSaveFnoStocks} disabled={fnoStockLoading}>
+              {fnoStockLoading ? <span className="spinner" aria-hidden="true" /> : null}
+              {fnoStockLoading ? 'Syncing…' : 'Sync FNO master data'}
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="section-card">
@@ -369,9 +393,18 @@ const BrokerAngelOne: React.FC = () => {
               </select> 
             </div>
           </div>
+          <button
+            className="button button-outline-secondary button-small"
+            type="button"
+            onClick={() => setSectionSubscriptionsOpen((value) => !value)}
+            aria-label={sectionSubscriptionsOpen ? 'Collapse broker subscriptions section' : 'Expand broker subscriptions section'}
+          >
+            {sectionSubscriptionsOpen ? '−' : '+'}
+          </button>
         </div>
 
-        <form onSubmit={handleSubscriptions} className="form-stack">
+        {sectionSubscriptionsOpen && (
+          <form onSubmit={handleSubscriptions} className="form-stack">
           <div className="form-row">
             <div className="form-group">
               <div className="table-card">
@@ -466,9 +499,8 @@ const BrokerAngelOne: React.FC = () => {
             </button>
           </div>
         </form>
+        )}
       </section>
-
-      {error && <div className="status-banner status-danger">{error}</div>}
 
       {response && !(response.status >= 200 && response.status < 300) && (
         <section className="section-card">
