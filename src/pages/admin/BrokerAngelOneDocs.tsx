@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Alert, Badge, Button, ButtonGroup, Card, Container, Form, Spinner, Toast } from 'react-bootstrap';
+import { Alert, Badge, Button, ButtonGroup, Card, Container, Form, Spinner, Table, Toast } from 'react-bootstrap';
 import api from '../../services/api';
 
 const loginEndpoint = '/broker/api/angelOne/login/byTtop';
 const reloginEndpoint = '/broker/api/angelOne/relogin';
 const subscriptionsEndpoint = '/broker/api/angelOne/subscriptions';
 const saveFnoStockEndpoint = '/broker/api/job/saveFNOStock';
+const fnoStockSymbolsEndpoint = '/broker/api/job/fnoStockSymbols';
 
 const BrokerAngelOneDocs: React.FC = () => {
   const [ttop, setTtop] = useState('');
@@ -21,10 +22,12 @@ const BrokerAngelOneDocs: React.FC = () => {
   const [showInput, setShowInput] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [fnoStockLoading, setFnoStockLoading] = useState(false);
+  const [loadingFnoStockSymbols, setLoadingFnoStockSymbols] = useState(false);
   const [subscriptionExchange, setSubscriptionExchange] = useState('NSE');
   const [subscriptionSymbols, setSubscriptionSymbols] = useState<Array<{ token: string; symbol: string }>>([
     { token: '', symbol: '' },
   ]);
+  const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set([0]));
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
   const [subscriptionFieldErrors, setSubscriptionFieldErrors] = useState<Record<number, { token?: string; symbol?: string }>>({});
 
@@ -152,6 +155,49 @@ const BrokerAngelOneDocs: React.FC = () => {
     }
   };
 
+  const loadFnoStockSymbols = async (exchange?: string) => {
+    const selectedExchange = exchange ?? subscriptionExchange;
+    setError('');
+    setResponse(null);
+    setSubscriptionFormError('');
+    setSubscriptionFieldErrors({});
+    setLoadingFnoStockSymbols(true);
+
+    try {
+      setSubscriptionSymbols([]);
+      setSelectedSubscriptionRows(new Set());
+      const result = await api.get(fnoStockSymbolsEndpoint, { params: { exchange: selectedExchange } });
+      if (result.status >= 200 && result.status < 300 && Array.isArray(result.data)) {
+        const symbols = result.data as Array<{ symboltoken: string; tradingsymbol: string }>;
+        if (symbols.length === 0) {
+          setError(`No FNO symbols found for exchange ${selectedExchange}.`);
+        } else {
+          const rows = symbols.map((item) => ({ token: item.symboltoken, symbol: item.tradingsymbol }));
+          setSubscriptionSymbols(rows);
+          setSelectedSubscriptionRows(new Set(rows.map((_, index) => index)));
+          setToastMessage(`Loaded ${symbols.length} FNO symbols for ${selectedExchange}.`);
+          setShowToast(true);
+        }
+      } else {
+        setError('Failed to load FNO stock symbols.');
+      }
+      setLastCheckedAt(new Date().toLocaleString());
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load FNO stock symbols.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+      setLastCheckedAt(new Date().toLocaleString());
+    } finally {
+      setLoadingFnoStockSymbols(false);
+    }
+  };
+
+  const handleExchangeChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextExchange = event.target.value;
+    setSubscriptionExchange(nextExchange);
+    await loadFnoStockSymbols(nextExchange);
+  };
+
   const handleSubscriptions = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -165,8 +211,8 @@ const BrokerAngelOneDocs: React.FC = () => {
 
     setSubscriptionLoading(true);
     try {
-      const symbols = subscriptionSymbols.reduce((acc, item) => {
-        if (item.token.trim() && item.symbol.trim()) {
+      const symbols = subscriptionSymbols.reduce((acc, item, index) => {
+        if (selectedSubscriptionRows.has(index) && item.token.trim() && item.symbol.trim()) {
           acc[item.token.trim()] = item.symbol.trim();
         }
         return acc;
@@ -349,6 +395,7 @@ const BrokerAngelOneDocs: React.FC = () => {
               <div>
                 <h5 className="mb-1">Broker Subscriptions</h5>
                 <p className="mb-0 text-muted">Send subscription metadata for AngelOne to register symbols on the chosen exchange.</p>
+                <p className="mb-0 text-muted">Select NSE or BSE, then load Token IDs and Symbol Names from the FNO stock master for that exchange.</p>
               </div>
               <Badge bg="secondary" className="align-self-center">New feature</Badge>
             </div>
@@ -357,52 +404,86 @@ const BrokerAngelOneDocs: React.FC = () => {
             <Form onSubmit={handleSubscriptions}>
               <div className="row g-3 mb-3">
                 <div className="col-12 col-md-4">
-                  <Form.Label className="fw-semibold">Exchange</Form.Label>
-                  <Form.Select value={subscriptionExchange} onChange={(event) => setSubscriptionExchange(event.target.value)}>
+                  <Form.Label className="fw-semibold">Exchange (NSE / BSE)</Form.Label>
+                  <Form.Select value={subscriptionExchange} onChange={handleExchangeChange}>
                     <option value="NSE">NSE</option>
                     <option value="BSE">BSE</option>
                   </Form.Select>
+                  <Form.Text className="text-muted d-block">Selecting an exchange will automatically load symbols from the broker DB filtered by that exchange.</Form.Text>
                 </div>
                 <div className="col-12 col-md-8">
-                  <Form.Label className="fw-semibold">Symbols</Form.Label>
+                  <div className="mb-2">
+                    <Form.Label className="fw-semibold">Symbols</Form.Label>
+                    <Form.Text className="text-muted d-block">Token ID and Symbol Name are loaded from the broker DB filtered by the selected exchange.</Form.Text>
+                  </div>
                   <div className="border rounded-3 p-3 bg-light">
-                    {subscriptionSymbols.map((item, index) => (
-                      <div key={`${item.token}-${index}`} className="d-flex flex-wrap gap-2 align-items-start mb-2">
-                        <Form.Group className="flex-grow-1" controlId={`subscription-token-${index}`}>
-                          <Form.Control
-                            type="text"
-                            placeholder="Token ID"
-                            value={item.token}
-                            onChange={(event) => updateSubscriptionRow(index, 'token', event.target.value)}
-                            className="flex-grow-1"
-                            isInvalid={Boolean(subscriptionFieldErrors[index]?.token)}
-                          />
-                          <Form.Control.Feedback type="invalid">
-                            {subscriptionFieldErrors[index]?.token}
-                          </Form.Control.Feedback>
-                        </Form.Group>
-
-                        <Form.Group className="flex-grow-2" controlId={`subscription-symbol-${index}`}>
-                          <Form.Control
-                            type="text"
-                            placeholder="Symbol Name"
-                            value={item.symbol}
-                            onChange={(event) => updateSubscriptionRow(index, 'symbol', event.target.value)}
-                            className="flex-grow-2"
-                            isInvalid={Boolean(subscriptionFieldErrors[index]?.symbol)}
-                          />
-                          <Form.Control.Feedback type="invalid">
-                            {subscriptionFieldErrors[index]?.symbol}
-                          </Form.Control.Feedback>
-                        </Form.Group>
-
-                        {subscriptionSymbols.length > 1 && (
-                          <Button variant="outline-danger" size="sm" onClick={() => removeSubscriptionRow(index)}>
-                            Remove
-                          </Button>
-                        )}
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="d-flex gap-2 align-items-center">
+                        <Form.Check
+                          type="checkbox"
+                          id="select-all-subscriptions"
+                          label={selectedSubscriptionRows.size === subscriptionSymbols.length ? 'Unselect all' : 'Select all'}
+                          checked={subscriptionSymbols.length > 0 && selectedSubscriptionRows.size === subscriptionSymbols.length}
+                          onChange={() => {
+                            if (selectedSubscriptionRows.size === subscriptionSymbols.length) {
+                              setSelectedSubscriptionRows(new Set());
+                            } else {
+                              setSelectedSubscriptionRows(new Set(subscriptionSymbols.map((_, index) => index)));
+                            }
+                          }}
+                        />
+                        <span className="text-muted small">{subscriptionSymbols.length} rows loaded</span>
                       </div>
-                    ))}
+                    </div>
+                    <Table responsive bordered hover size="sm" className="mb-3">
+                      <thead>
+                        <tr>
+                          <th className="text-muted" style={{ width: '80px' }}>
+                            <Form.Check
+                              type="checkbox"
+                              id="header-select-all"
+                              checked={subscriptionSymbols.length > 0 && selectedSubscriptionRows.size === subscriptionSymbols.length}
+                              onChange={() => {
+                                if (selectedSubscriptionRows.size === subscriptionSymbols.length) {
+                                  setSelectedSubscriptionRows(new Set());
+                                } else {
+                                  setSelectedSubscriptionRows(new Set(subscriptionSymbols.map((_, index) => index)));
+                                }
+                              }}
+                            />
+                          </th>
+                          <th className="text-muted" style={{ width: '140px' }}>Token ID</th>
+                          <th className="text-muted">Symbol Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptionSymbols.map((item, index) => (
+                          <tr key={`${item.token}-${index}`}>
+                            <td className="p-2 align-middle text-center">
+                              <Form.Check
+                                type="checkbox"
+                                checked={selectedSubscriptionRows.has(index)}
+                                onChange={() => {
+                                  const nextSelected = new Set(selectedSubscriptionRows);
+                                  if (nextSelected.has(index)) {
+                                    nextSelected.delete(index);
+                                  } else {
+                                    nextSelected.add(index);
+                                  }
+                                  setSelectedSubscriptionRows(nextSelected);
+                                }}
+                              />
+                            </td>
+                            <td className="p-2 align-middle">
+                              <div className="text-break">{item.token || '-'}</div>
+                            </td>
+                            <td className="p-2 align-middle">
+                              <div className="text-break">{item.symbol || '-'}</div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
                     <Button variant="outline-primary" size="sm" onClick={addSubscriptionRow}>
                       Add symbol
                     </Button>

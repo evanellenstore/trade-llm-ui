@@ -1,0 +1,23 @@
+/* Shared admin page layout and typography */
+:root{
+  --bg: #f8fafc;
+  --card-bg: #fff;
+  --muted: #64748b;
+}
+
+body { background: var(--bg); }
+
+.admin-page-shell {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.admin-card {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 6px 20px rgba(2,6,23,0.06);
+}
+
+.muted { color: var(--muted); }

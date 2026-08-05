@@ -9,6 +9,7 @@ import TenantList from '../pages/admin/TenantList';
 import UserList from '../pages/admin/UserList';
 import DocumentList from '../pages/admin/DocumentList';
 import BrokerAngelOneDocs from '../pages/admin/BrokerAngelOneDocs';
+import BrokerLogin from '../pages/admin/BrokerLogin';
 import EDITransform from '../pages/admin/EDITransform';
 import Transactions from '../pages/admin/Transactions';
 import AISettings from '../pages/admin/AISettings';
@@ -89,6 +90,16 @@ const AppRoutes: React.FC = () => (
         <RequireAuth roles={['ADMIN']}>
           <AdminLayout>
             <BrokerAngelOneDocs />
+          </AdminLayout>
+        </RequireAuth>
+      }
+    />
+    <Route
+      path="/admin/broker-login"
+      element={
+        <RequireAuth roles={['ADMIN']}>
+          <AdminLayout>
+            <BrokerLogin />
           </AdminLayout>
         </RequireAuth>
       }
