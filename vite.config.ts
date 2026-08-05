@@ -5,6 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    allowedHosts: true
-  }
+    allowedHosts: true,
+    proxy: {
+      '/broker': {
+        target: 'http://localhost:7090',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 });
