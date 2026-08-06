@@ -17,6 +17,8 @@ const BrokerAngelOne: React.FC = () => {
   const [showRaw, setShowRaw] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [showResponseModal, setShowResponseModal] = useState(false);
+  const [responseFromRelogin, setResponseFromRelogin] = useState(false);
   const [reloginLoading, setReloginLoading] = useState(false);
   const [showInput, setShowInput] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -26,9 +28,13 @@ const BrokerAngelOne: React.FC = () => {
   const [subscriptionSymbols, setSubscriptionSymbols] = useState<Array<{ token: string; symbol: string }>>([]);
   const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set());
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
-  const [sectionSessionOpen, setSectionSessionOpen] = useState(true);
-  const [sectionFnoOpen, setSectionFnoOpen] = useState(true);
-  const [sectionSubscriptionsOpen, setSectionSubscriptionsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'session' | 'fno' | 'subscriptions'>('session');
+
+  const tabItems = [
+    { id: 'session', title: 'Broker session', description: 'Authenticate a broker session with TTOP or refresh an existing AngelOne session.' },
+    { id: 'fno', title: 'FNO master import', description: 'Refresh the broker database with the latest FNO master data before loading symbols.' },
+    { id: 'subscriptions', title: 'Broker subscriptions', description: 'Choose an exchange and register broker subscriptions from one panel.' },
+  ];
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,10 +59,10 @@ const BrokerAngelOne: React.FC = () => {
       });
 
       setResponse({ status: result.status, payload: result.data });
+      // Show the response in the modal (message-only) instead of a toast
       if (result.status >= 200 && result.status < 300) {
-        // Show a generic success message instead of raw server payload
-        setToastMessage('Login successful!');
-        setShowToast(true);
+        setResponseFromRelogin(true);
+        setShowResponseModal(true);
       }
     } catch (err: unknown) {
       const message = err instanceof Error
@@ -81,10 +87,11 @@ const BrokerAngelOne: React.FC = () => {
       const config = trimmedTtop ? { params: { ttop: trimmedTtop } } : undefined;
       const result = await api.get(reloginEndpoint, config as any);
       setResponse({ status: result.status, payload: result.data });
-      if (result.status >= 200 && result.status < 300) {
-        setToastMessage('Re-login successful!');
-        setShowToast(true);
-      }
+      // Mark that this response came from relogin and show it in a popup
+      setResponseFromRelogin(true);
+      setShowResponseModal(true);
+      // For relogin we show the response in the modal only — no toast
+      // (keep server response available in modal)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Re-login failed.';
       const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
@@ -92,6 +99,15 @@ const BrokerAngelOne: React.FC = () => {
     } finally {
       setReloginLoading(false);
     }
+  };
+
+  const closeResponseModal = () => {
+    setShowResponseModal(false);
+    setResponseFromRelogin(false);
+    // clear the response so the bottom panel does not show after closing modal
+    setResponse(null);
+    setShowRaw(false);
+    setCopied(false);
   };
 
   const validateSubscriptionForm = () => {
@@ -258,6 +274,25 @@ const BrokerAngelOne: React.FC = () => {
     }
   };
 
+  const getReloginMessage = () => {
+    if (!response) return '';
+    const p = response.payload;
+    if (typeof p === 'string') return p;
+    try {
+      const obj = p as any;
+      if (obj && typeof obj === 'object') {
+        if (typeof obj.message === 'string') return obj.message;
+        if (typeof obj.msg === 'string') return obj.msg;
+        if (obj.payload && typeof obj.payload.message === 'string') return obj.payload.message;
+        if (obj.data && typeof obj.data.message === 'string') return obj.data.message;
+        return JSON.stringify(obj);
+      }
+      return String(p);
+    } catch {
+      return String(p);
+    }
+  };
+
   const copyToClipboard = async () => {
     const payload = renderPayload();
     if (!payload) return;
@@ -286,151 +321,142 @@ const BrokerAngelOne: React.FC = () => {
         </div>
       )}
 
-      <section className="admin-page-hero broker-hero">
-        <div>
-          <p className="section-eyebrow">Broker administration</p>
-          <h2>AngelOne subscriptions</h2>
-          <p>Sync FNO master data, choose an exchange, and register broker subscriptions from one panel.</p>
-        </div>
-      </section>
-
       <section className="section-card">
-        <div className="section-header">
-          <div>
-            <h4>AngelOne broker session</h4>
-            <p className="section-text">Authenticate a broker session with TTOP, or refresh an existing AngelOne session.</p>
-          </div>
-          <div className="section-header-actions">
+        <div className="broker-tabs" role="tablist" aria-label="Broker administration tabs">
+          {tabItems.map((tab) => (
             <button
-              className="button button-outline-secondary button-small"
+              key={tab.id}
+              className={`broker-tab ${activeTab === tab.id ? 'active' : ''}`}
               type="button"
-              onClick={() => setSectionSessionOpen((value) => !value)}
-              aria-label={sectionSessionOpen ? 'Collapse broker session section' : 'Expand broker session section'}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id as 'session' | 'fno' | 'subscriptions')}
             >
-              {sectionSessionOpen ? '−' : '+'}
+              {tab.title}
             </button>
-          </div>
+          ))}
         </div>
 
-        {sectionSessionOpen && (
-          <form onSubmit={handleLogin} className="form-stack">
-            {showInput ? (
-              <div className="form-group">
-                <label className="form-label">TTOP</label>
-                <input
-                  className="form-control"
-                  value={ttop}
-                  onChange={(event) => setTtop(event.target.value)}
-                  placeholder="Enter trader TTOP"
-                  aria-label="Enter trader TTOP"
-                />
-                <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
-              </div>
-            ) : (
-              <div className="notice-box">
+        <div className="tab-panel">
+          {activeTab === 'session' && (
+            <div className="tab-section">
+              <div className="section-header section-header-sm">
                 <div>
-                  <div className="notice-title">Re-login mode</div>
-                  <p className="form-text">TTOP input is hidden while re-login is active.</p>
+                  <h5>AngelOne broker session</h5>
+                  <p className="section-text">Authenticate a broker session with TTOP, or refresh an existing AngelOne session.</p>
                 </div>
-                <button className="button button-link" type="button" onClick={() => setShowInput(true)}>
-                  Show input
-                </button>
               </div>
-            )}
-
-            <div className="button-group">
-              <button className="button button-primary" type="submit" disabled={loading} aria-live="polite">
-                {loading ? <span className="spinner" aria-hidden="true" /> : null}
-                {loading ? 'Checking…' : 'Login with TTOP'}
-              </button>
-              <button className="button button-secondary" type="button" disabled={reloginLoading} onClick={handleRelogin}>
-                {reloginLoading ? <span className="spinner" aria-hidden="true" /> : null}
-                {reloginLoading ? 'Re-login…' : 'Re-login'}
-              </button>
-              {showInput && (
-                <button className="button button-secondary" type="button" onClick={() => setTtop('')}>
-                  Reset
-                </button>
-              )}
-            </div>
-          </form>
-        )}
-      </section>
-
-      <section className="section-card">
-        <div className="section-header">
-          <div>
-            <h5>FNO master import</h5>
-            <p className="section-text">Refresh the broker database with the latest FNO master data before loading symbols.</p>
-          </div>
-          <button
-            className="button button-outline-secondary button-small"
-            type="button"
-            onClick={() => setSectionFnoOpen((value) => !value)}
-            aria-label={sectionFnoOpen ? 'Collapse FNO master import section' : 'Expand FNO master import section'}
-          >
-            {sectionFnoOpen ? '−' : '+'}
-          </button>
-        </div>
-        {sectionFnoOpen && (
-          <div className="button-group">
-            <button className="button button-primary" type="button" onClick={handleSaveFnoStocks} disabled={fnoStockLoading}>
-              {fnoStockLoading ? <span className="spinner" aria-hidden="true" /> : null}
-              {fnoStockLoading ? 'Syncing…' : 'Sync FNO master data'}
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section className="section-card">
-        <div className="section-header">
-          <div>
-            <h5>Broker subscriptions</h5>
-             <div className="form-group">
-              <select className="form-control" value={subscriptionExchange} onChange={handleExchangeChange}>
-                <option value="NSE">NSE</option>
-                <option value="BSE">BSE</option>
-              </select> 
-            </div>
-          </div>
-          <button
-            className="button button-outline-secondary button-small"
-            type="button"
-            onClick={() => setSectionSubscriptionsOpen((value) => !value)}
-            aria-label={sectionSubscriptionsOpen ? 'Collapse broker subscriptions section' : 'Expand broker subscriptions section'}
-          >
-            {sectionSubscriptionsOpen ? '−' : '+'}
-          </button>
-        </div>
-
-        {sectionSubscriptionsOpen && (
-          <form onSubmit={handleSubscriptions} className="form-stack">
-          <div className="form-row">
-            <div className="form-group">
-              <div className="table-card">
-                <div className="table-toolbar">
-                  <label className="checkbox-field">
+              <form onSubmit={handleLogin} className="form-stack">
+                {showInput ? (
+                  <div className="form-group">
+                    <label className="form-label">TTOP</label>
                     <input
-                      type="checkbox"
-                      checked={subscriptionSymbols.length > 0 && selectedSubscriptionRows.size === subscriptionSymbols.length}
-                      onChange={() => {
-                        if (selectedSubscriptionRows.size === subscriptionSymbols.length) {
-                          setSelectedSubscriptionRows(new Set());
-                        } else {
-                          setSelectedSubscriptionRows(new Set(subscriptionSymbols.map((_, index) => index)));
-                        }
-                      }}
+                      className="form-control"
+                      value={ttop}
+                      onChange={(event) => setTtop(event.target.value)}
+                      placeholder="Enter trader TTOP"
+                      aria-label="Enter trader TTOP"
                     />
-                    {selectedSubscriptionRows.size === subscriptionSymbols.length ? 'Unselect all' : 'Select all'}
-                  </label>
-                  <span className="table-note">{subscriptionSymbols.length} {subscriptionSymbols.length === 1 ? 'row' : 'rows'} loaded</span>
-                </div>
+                    <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
+                  </div>
+                ) : (
+                  <div className="notice-box">
+                    <div>
+                      <div className="notice-title">Re-login mode</div>
+                      <p className="form-text">TTOP input is hidden while re-login is active.</p>
+                    </div>
+                    <button className="button button-link" type="button" onClick={() => setShowInput(true)}>
+                      Show input
+                    </button>
+                  </div>
+                )}
 
-                <div className="table-scroll">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th >
+                <div className="button-group">
+                  <button className="button button-primary" type="submit" disabled={loading} aria-live="polite">
+                    {loading ? <span className="spinner" aria-hidden="true" /> : null}
+                    {loading ? 'Checking…' : 'Login with TTOP'}
+                  </button>
+                  <button className="button button-secondary" type="button" disabled={reloginLoading} onClick={handleRelogin}>
+                    {reloginLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    {reloginLoading ? 'Re-login…' : 'Re-login'}
+                  </button>
+                  {showInput && (
+                    <button className="button button-secondary" type="button" onClick={() => setTtop('')}>
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'fno' && (
+            <div className="tab-section">
+              <div className="section-header section-header-sm">
+                <div>
+                  <h5>FNO master import</h5>
+                  <p className="section-text">Refresh the broker database with the latest FNO master data before loading symbols.</p>
+                </div>
+              </div>
+              <div className="tab-panel-header">
+                <div className="form-group" style={{ minWidth: '220px' }}>
+                  <label className="form-label">Exchange</label>
+                  <select className="form-control" value={subscriptionExchange} onChange={handleExchangeChange}>
+                    <option value="NSE">NSE</option>
+                    <option value="BSE">BSE</option>
+                  </select>
+                </div>
+                <div className="tab-panel-meta" style={{ alignSelf: 'flex-end', textAlign: 'right' }}>
+                  <span className="badge badge-info">Active exchange: {subscriptionExchange}</span>
+                  <p className="section-text" style={{ margin: '8px 0 0' }}>
+                    Refresh the broker database, then reload symbols for the selected exchange.
+                  </p>
+                </div>
+                <div className="button-group">
+                  <button className="button button-primary" type="button" onClick={handleSaveFnoStocks} disabled={fnoStockLoading}>
+                    {fnoStockLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    {fnoStockLoading ? 'Syncing…' : 'Sync FNO master data'}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => loadFnoStockSymbols(subscriptionExchange)} disabled={loadingFnoStockSymbols}>
+                    {loadingFnoStockSymbols ? <span className="spinner" aria-hidden="true" /> : null}
+                    {loadingFnoStockSymbols ? 'Loading…' : 'Reload symbols'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'subscriptions' && (
+            <div className="tab-section">
+              <div className="section-header section-header-sm">
+                <div>
+                  <h5>Broker subscriptions</h5>
+                  <p className="section-text">Choose an exchange and register broker subscriptions from one panel.</p>
+                </div>
+              </div>
+
+              <div className="tab-panel-header">
+                <div className="form-group" style={{ minWidth: '220px' }}>
+                  <label className="form-label">Exchange</label>
+                  <select className="form-control" value={subscriptionExchange} onChange={handleExchangeChange}>
+                    <option value="NSE">NSE</option>
+                    <option value="BSE">BSE</option>
+                  </select>
+                </div>
+                <div className="tab-panel-meta" style={{ alignSelf: 'flex-end', textAlign: 'right' }}>
+                  <span className="badge badge-info">Active exchange: {subscriptionExchange}</span>
+                  <p className="section-text" style={{ margin: '8px 0 0' }}>
+                    Symbols loaded for the selected exchange. Use the checkbox controls to register subscriptions.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubscriptions} className="form-stack">
+                <div className="form-row">
+                  <div className="form-group">
+                    <div className="table-card">
+                      <div className="table-toolbar">
+                        <label className="checkbox-field">
                           <input
                             type="checkbox"
                             checked={subscriptionSymbols.length > 0 && selectedSubscriptionRows.size === subscriptionSymbols.length}
@@ -442,67 +468,90 @@ const BrokerAngelOne: React.FC = () => {
                               }
                             }}
                           />
-                        </th>
-                        <th style={{ width: '140px' }}>Token ID</th>
-                        <th>Symbol Name</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {subscriptionSymbols.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="table-empty">
-                            {loadingFnoStockSymbols ? 'Loading symbols…' : `No symbols available for ${subscriptionExchange}.`}
-                          </td>
-                        </tr>
-                      ) : (
-                        subscriptionSymbols.map((item, index) => (
-                          <tr key={`${item.token}-${index}`}>
-                            <td className="table-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={selectedSubscriptionRows.has(index)}
-                                onChange={() => {
-                                  const nextSelected = new Set(selectedSubscriptionRows);
-                                  if (nextSelected.has(index)) {
-                                    nextSelected.delete(index);
-                                  } else {
-                                    nextSelected.add(index);
-                                  }
-                                  setSelectedSubscriptionRows(nextSelected);
-                                }}
-                              />
-                            </td>
-                            <td>{item.token || '-'}</td>
-                            <td>{item.symbol || '-'}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                          {selectedSubscriptionRows.size === subscriptionSymbols.length ? 'Unselect all' : 'Select all'}
+                        </label>
+                        <span className="table-note">{subscriptionSymbols.length} {subscriptionSymbols.length === 1 ? 'row' : 'rows'} loaded</span>
+                      </div>
+
+                      <div className="table-scroll">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>
+                                <input
+                                  type="checkbox"
+                                  checked={subscriptionSymbols.length > 0 && selectedSubscriptionRows.size === subscriptionSymbols.length}
+                                  onChange={() => {
+                                    if (selectedSubscriptionRows.size === subscriptionSymbols.length) {
+                                      setSelectedSubscriptionRows(new Set());
+                                    } else {
+                                      setSelectedSubscriptionRows(new Set(subscriptionSymbols.map((_, index) => index)));
+                                    }
+                                  }}
+                                />
+                              </th>
+                              <th style={{ width: '140px' }}>Token ID</th>
+                              <th>Symbol Name</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subscriptionSymbols.length === 0 ? (
+                              <tr>
+                                <td colSpan={3} className="table-empty">
+                                  {loadingFnoStockSymbols ? 'Loading symbols…' : `No symbols available for ${subscriptionExchange}.`}
+                                </td>
+                              </tr>
+                            ) : (
+                              subscriptionSymbols.map((item, index) => (
+                                <tr key={`${item.token}-${index}`}>
+                                  <td className="table-checkbox">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedSubscriptionRows.has(index)}
+                                      onChange={() => {
+                                        const nextSelected = new Set(selectedSubscriptionRows);
+                                        if (nextSelected.has(index)) {
+                                          nextSelected.delete(index);
+                                        } else {
+                                          nextSelected.add(index);
+                                        }
+                                        setSelectedSubscriptionRows(nextSelected);
+                                      }}
+                                    />
+                                  </td>
+                                  <td>{item.token || '-'}</td>
+                                  <td>{item.symbol || '-'}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                {subscriptionFormError && <div className="status-banner status-warning">{subscriptionFormError}</div>}
+
+                <div className="button-group">
+                  <button className="button button-primary" type="submit" disabled={subscriptionLoading}>
+                    {subscriptionLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    {subscriptionLoading ? 'Submitting…' : 'Submit subscriptions'}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => {
+                    setSelectedSubscriptionRows(new Set());
+                    setSubscriptionFormError('');
+                  }}>
+                    Clear selection
+                  </button>
+                </div>
+              </form>
             </div>
-          </div>
-
-          {subscriptionFormError && <div className="status-banner status-warning">{subscriptionFormError}</div>}
-
-          <div className="button-group">
-            <button className="button button-primary" type="submit" disabled={subscriptionLoading}>
-              {subscriptionLoading ? <span className="spinner" aria-hidden="true" /> : null}
-              {subscriptionLoading ? 'Submitting…' : 'Submit subscriptions'}
-            </button>
-            <button className="button button-secondary" type="button" onClick={() => {
-              setSelectedSubscriptionRows(new Set());
-              setSubscriptionFormError('');
-            }}>
-              Clear selection
-            </button>
-          </div>
-        </form>
-        )}
+          )}
+        </div>
       </section>
 
-      {response && !(response.status >= 200 && response.status < 300) && (
+      {response && !responseFromRelogin && (
         <section className="section-card">
           <div className="section-header section-header-sm">
             <div>
@@ -527,6 +576,21 @@ const BrokerAngelOne: React.FC = () => {
             {renderPayload()}
           </pre>
         </section>
+      )}
+
+      {/* Response modal for relogin responses - show only the message text */}
+      {showResponseModal && response && (
+        <div className="response-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="response-modal">
+            <div className="response-modal-header">
+              <h4>Message</h4>
+              <button className="button button-link" onClick={closeResponseModal} aria-label="Close response modal">Close</button>
+            </div>
+            <div className="response-modal-body">
+              <div className="relogin-message">{getReloginMessage()}</div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
