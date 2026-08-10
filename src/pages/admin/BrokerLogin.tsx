@@ -1,18 +1,45 @@
 import React, { useState } from 'react';
+import api from '../../services/api';
 import '../../styles/AdminPageCommon.css';
 import './BrokerLogin.css';
+import { useMode } from '../../context/ModeContext';
 
 const BrokerLogin: React.FC = () => {
+  const { mode } = useMode();
   const [ttop, setTtop] = useState('');
   const [relogin, setRelogin] = useState(false);
   const [exchange, setExchange] = useState('NSE');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    const trimmedTtop = ttop.trim();
+    if (!trimmedTtop) {
+      setError('Please enter a valid TTOP before attempting login.');
+      return;
+    }
+
     setLoading(true);
-    // Placeholder: trigger broker login API
-    console.log('Logging in trader', { ttop, relogin });
-    setTimeout(() => setLoading(false), 700);
+    setError('');
+    setMessage('');
+
+    try {
+      if (relogin) {
+        const url = `/broker/api/angelOne/relogin?ttop=${encodeURIComponent(trimmedTtop)}&mode=${encodeURIComponent(mode)}`;
+        const response = await api.get(url);
+        setMessage(response.data || `Re-login completed successfully in ${mode} mode.`);
+      } else {
+        const url = `/broker/api/angelOne/login/byTtop?ttop=${encodeURIComponent(trimmedTtop)}&mode=${encodeURIComponent(mode)}`;
+        const response = await api.post(url);
+        setMessage(response.data || `Login completed successfully in ${mode} mode.`);
+      }
+    } catch (err: unknown) {
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : 'Broker login failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImportFNO = () => {
@@ -48,12 +75,15 @@ const BrokerLogin: React.FC = () => {
 
           <label className="checkbox-row">
             <input type="checkbox" checked={relogin} onChange={(e) => setRelogin(e.target.checked)} />
-            <span className="checkbox-label">Use relogin to refresh an existing session</span>
+            <span className="checkbox-label">Use relogin to refresh an active session</span>
           </label>
+
+          {error && <div className="error-message">{error}</div>}
+          {message && <div className="success-message">{message}</div>}
 
           <div className="actions">
             <button className="btn primary" onClick={handleLogin} disabled={loading}>
-              {loading ? 'Working…' : 'Login Trader'}
+              {loading ? 'Working…' : relogin ? 'Re-login Trader' : 'Login Trader'}
             </button>
           </div>
         </section>

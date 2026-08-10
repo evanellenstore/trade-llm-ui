@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
+import { useMode } from '../../context/ModeContext';
 import './BrokerAngelOne.css';
 
 const loginEndpoint = '/broker/api/angelOne/login/byTtop';
@@ -9,6 +10,7 @@ const saveFnoStockEndpoint = '/broker/api/job/saveFNOStock';
 const fnoStockSymbolsEndpoint = '/broker/api/job/fnoStockSymbols';
 
 const BrokerAngelOne: React.FC = () => {
+  const { mode } = useMode();
   const [ttop, setTtop] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +57,7 @@ const BrokerAngelOne: React.FC = () => {
 
     try {
       const result = await api.post(loginEndpoint, null, {
-        params: { ttop: trimmedTtop },
+        params: { ttop: trimmedTtop, mode },
       });
 
       setResponse({ status: result.status, payload: result.data });
@@ -84,8 +86,10 @@ const BrokerAngelOne: React.FC = () => {
     setError('');
     setResponse(null);
     try {
-      const config = trimmedTtop ? { params: { ttop: trimmedTtop } } : undefined;
-      const result = await api.get(reloginEndpoint, config as any);
+      const url = trimmedTtop
+        ? `${reloginEndpoint}?ttop=${encodeURIComponent(trimmedTtop)}&mode=${encodeURIComponent(mode)}`
+        : `${reloginEndpoint}?mode=${encodeURIComponent(mode)}`;
+      const result = await api.get(url);
       setResponse({ status: result.status, payload: result.data });
       // Mark that this response came from relogin and show it in a popup
       setResponseFromRelogin(true);
@@ -348,17 +352,19 @@ const BrokerAngelOne: React.FC = () => {
               </div>
               <form onSubmit={handleLogin} className="form-stack">
                 {showInput ? (
-                  <div className="form-group">
-                    <label className="form-label">TTOP</label>
-                    <input
-                      className="form-control"
-                      value={ttop}
-                      onChange={(event) => setTtop(event.target.value)}
-                      placeholder="Enter trader TTOP"
-                      aria-label="Enter trader TTOP"
-                    />
-                    <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
-                  </div>
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">TTOP</label>
+                      <input
+                        className="form-control"
+                        value={ttop}
+                        onChange={(event) => setTtop(event.target.value)}
+                        placeholder="Enter trader TTOP"
+                        aria-label="Enter trader TTOP"
+                      />
+                      <p className="form-text">Provide the trader's TTOP. Use Re-login to refresh an active session.</p>
+                    </div>
+                  </>
                 ) : (
                   <div className="notice-box">
                     <div>

@@ -26,6 +26,7 @@ import AdminInventory from '../pages/admin/AdminInventory';
 import AdminCategory from '../pages/admin/AdminCategory';
 import AdminBrand from '../pages/admin/AdminBrand';
 import AdminRewards from '../pages/admin/AdminRewards';
+import BacktestControl from '../pages/admin/BacktestControl';
 
 import TraderDashboard from '../pages/trader/TraderDashboard';
 import Products from '../pages/trader/Products';
@@ -194,6 +195,17 @@ const AppRoutes: React.FC = () => (
         </RequireAuth>
       }
     />
+    <Route
+      path="/admin/backtest"
+      element={
+        <RequireAuth roles={['ADMIN']}>
+          <AdminLayout>
+            <BacktestControl />
+          </AdminLayout>
+        </RequireAuth>
+      }
+    />
+
     <Route
       path="/admin/jobs"
       element={
