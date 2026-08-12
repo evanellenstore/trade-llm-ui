@@ -4,17 +4,21 @@ export interface BacktestRequest {
   symbol: string;
   timeframe?: string;
   runId?: string;
-  startTime?: string;
-  endTime?: string;
+  startDatetime?: string;
+  endDatetime?: string;
 }
 
 export const runBacktest = async (payload: BacktestRequest) => {
-  return api.post("/market/backtest", payload);
+  return api.post("/market/api/backtest/run", payload);
 };
 
 export const runLive = async () => {
   return api.post("/market/run-live");
 };
+
+
+
+
 
 export const getBacktestReport = async (payload: {
   symbol: string;

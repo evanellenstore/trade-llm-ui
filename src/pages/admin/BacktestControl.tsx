@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Button, Card, Form, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
-import { getBacktestReport, getSymbols, runBacktest, runLive } from "../../services/marketService";
+import { getBacktestReport, runBacktest, runLive } from "../../services/marketService";
 import { useMode } from "../../context/ModeContext";
 
 const BacktestControl: React.FC = () => {
-  const [symbols, setSymbols] = useState<string[]>([]);
-  const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("ONE_MINUTE");
-  const [runId, setRunId] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const { mode, setMode } = useMode();
@@ -16,27 +13,28 @@ const BacktestControl: React.FC = () => {
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<any | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [symbolsLoading, setSymbolsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("backtest");
 
   const isProcessing = backtestLoading || liveLoading;
+
+  const toIsoInstant = (dateTimeLocal: string) => {
+    if (!dateTimeLocal) {
+      return undefined;
+    }
+    const date = new Date(dateTimeLocal);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  };
 
   const handleRunBacktest = async () => {
     setBacktestLoading(true);
     setMessage(null);
     try {
       const response = await runBacktest({
-        symbol,
         timeframe,
-        runId: runId || undefined,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
+        startDatetime: toIsoInstant(startTime),
+        endDatetime: toIsoInstant(endTime),
       });
-      const returnedRunId = response.data.data.runId;
-      if (returnedRunId) {
-        setRunId(returnedRunId);
-      }
-      setMessage(`Market Data run started. runId=${returnedRunId}`);
+      setMessage("Market Data run started.");
     } catch (error: any) {
       setMessage(error.response?.data?.message || "Unable to start Market Data run");
     } finally {
@@ -49,9 +47,7 @@ const BacktestControl: React.FC = () => {
     setMessage(null);
     try {
       const response = await runLive();
-      setMessage(response.data.message || "Live processing started");
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to start live processing");
     } finally {
       setLiveLoading(false);
     }
@@ -71,33 +67,12 @@ const BacktestControl: React.FC = () => {
     setReport(null);
   };
 
-  const loadSymbols = async () => {
-    setSymbolsLoading(true);
-    try {
-      const response = await getSymbols();
-      setSymbols(response.data.data || []);
-      if (response.data.data?.length > 0) {
-        setSymbol(response.data.data[0]);
-      }
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to load symbols");
-    } finally {
-      setSymbolsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSymbols();
-  }, []);
-
   const handleLoadReport = async () => {
     setReportLoading(true);
     setMessage(null);
     try {
       const response = await getBacktestReport({
-        symbol,
         timeframe,
-        runId: runId || undefined,
         startTime: startTime || undefined,
         endTime: endTime || undefined,
       });
@@ -117,17 +92,6 @@ const BacktestControl: React.FC = () => {
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backtest")} className="mb-4">
           <Tab eventKey="backtest" title="Backtest">
             <Form>
-              <Form.Group className="mb-3" controlId="backtestSymbol">
-                <Form.Label>Symbol</Form.Label>
-                <Form.Select value={symbol} onChange={(e) => setSymbol(e.target.value)} disabled={symbolsLoading}>
-                  {symbolsLoading ? <option>Loading symbols...</option> : null}
-                  {symbols.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
               <Form.Group className="mb-3" controlId="backtestTimeframe">
                 <Form.Label>Timeframe</Form.Label>
                 <Form.Control value={timeframe} onChange={(e) => setTimeframe(e.target.value)} />
@@ -150,14 +114,10 @@ const BacktestControl: React.FC = () => {
                       onChange={(e) => setEndTime(e.target.value)}
                     />
                   </Form.Group>
-                  <Form.Group className="mb-3" controlId="backtestRunId">
-                    <Form.Label>Run ID (optional)</Form.Label>
-                    <Form.Control value={runId} onChange={(e) => setRunId(e.target.value)} placeholder="leave blank to auto-generate" />
-                  </Form.Group>
                 </>
               )}
               <Stack direction="horizontal" gap={2} className="mb-3">
-                <Button variant="primary" onClick={handleRun} disabled={isProcessing || !symbol}>
+                <Button variant="primary" onClick={handleRun} disabled={isProcessing}>
                   {mode === "live"
                     ? liveLoading
                       ? <><Spinner animation="border" size="sm" /> Live…</>
@@ -167,7 +127,7 @@ const BacktestControl: React.FC = () => {
                       : "Run Market Data"}
                 </Button>
                 {mode === "backtest" && (
-                  <Button variant="secondary" onClick={handleLoadReport} disabled={reportLoading || !symbol}>
+                  <Button variant="secondary" onClick={handleLoadReport} disabled={reportLoading}>
                     {reportLoading ? <><Spinner animation="border" size="sm" /> Loading…</> : "Load Report"}
                   </Button>
                 )}
