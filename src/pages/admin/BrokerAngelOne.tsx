@@ -250,7 +250,10 @@ const BrokerAngelOne: React.FC = () => {
       const result = await api.post(subscriptionsEndpoint, payload);
       setResponse({ status: result.status, payload: result.data });
       if (result.status >= 200 && result.status < 300) {
-        setToastMessage('Subscriptions updated successfully!');
+        // show a popup/modal with server response and a toast
+        setResponseFromRelogin(false);
+        setShowResponseModal(true);
+        setToastMessage('Subscription is done');
         setShowToast(true);
       }
     } catch (err: unknown) {
@@ -594,6 +597,25 @@ const BrokerAngelOne: React.FC = () => {
             </div>
             <div className="response-modal-body">
               <div className="relogin-message">{getReloginMessage()}</div>
+            </div>
+            <div className="response-modal-footer">
+              <div className="modal-status">
+                {response && response.status >= 200 && response.status < 300 ? (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="12" fill="#DCFCE7" />
+                    <path d="M7.5 12.5l2.5 2.5L16.5 9" stroke="#166534" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="12" fill="#FEE2E2" />
+                    <path d="M12 7.5v5" stroke="#991b1b" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="15.5" r="0.5" fill="#991b1b" />
+                  </svg>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button className="button button-primary" type="button" onClick={closeResponseModal}>OK</button>
+              </div>
             </div>
           </div>
         </div>
