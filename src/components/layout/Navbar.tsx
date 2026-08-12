@@ -31,8 +31,8 @@ const AppNavbar: React.FC = () => {
               className="w-auto bg-dark text-light border-light"
               aria-label="Mode"
             >
-              <option value="backtest">Backtest</option>
               <option value="live">Live</option>
+              <option value="backtest">Backtest</option>
             </Form.Select>
           </div>
 

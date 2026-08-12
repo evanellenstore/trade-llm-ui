@@ -9,16 +9,11 @@ import TenantList from '../pages/admin/TenantList';
 import UserList from '../pages/admin/UserList';
 import BrokerAngelOneDocs from '../pages/admin/BrokerAngelOne';
 import BrokerLogin from '../pages/admin/BrokerLogin';
-import EDITransform from '../pages/admin/EDITransform';
-import Transactions from '../pages/admin/Transactions';
 import AISettings from '../pages/admin/AISettings';
-import PromptTemplates from '../pages/admin/PromptTemplates';
 import AdminSettings from '../pages/admin/AdminSettings';
 import TransactionTypes from '../pages/admin/TransactionTypes';
 import Profile from '../pages/admin/Profile';
 import JobsList from '../pages/admin/JobsList';
-import LogsList from '../pages/admin/LogsList';
-import Reports from '../pages/admin/Reports';
 import FromPurchase from '../pages/admin/FromPurchase';
 import AdminProduct from '../pages/admin/AdminProduct';
 import AdminInventory from '../pages/admin/AdminInventory';
@@ -75,7 +70,7 @@ const AppRoutes: React.FC = () => (
       }
     />
     <Route
-      path="/admin/broker-api-docs"
+      path="/admin/broker-connect"
       element={
         <RequireAuth roles={['ADMIN']}>
           <AdminLayout>
@@ -90,26 +85,6 @@ const AppRoutes: React.FC = () => (
         <RequireAuth roles={['ADMIN']}>
           <AdminLayout>
             <BrokerLogin />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
-      path="/admin/edi-transform"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <EDITransform />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
-      path="/admin/transactions"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <Transactions />
           </AdminLayout>
         </RequireAuth>
       }
@@ -135,36 +110,6 @@ const AppRoutes: React.FC = () => (
       }
     />
     <Route
-      path="/admin/prompts"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <PromptTemplates />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
-      path="/admin/reports"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <Reports />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
-      path="/admin/logs"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <LogsList />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
       path="/admin/settings"
       element={
         <RequireAuth roles={['ADMIN']}>
@@ -185,7 +130,7 @@ const AppRoutes: React.FC = () => (
       }
     />
     <Route
-      path="/admin/backtest"
+      path="/admin/market-data"
       element={
         <RequireAuth roles={['ADMIN']}>
           <AdminLayout>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, Card, Form, Spinner, Stack } from "react-bootstrap";
+import { Button, Card, Form, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
 import { getBacktestReport, getSymbols, runBacktest, runLive } from "../../services/marketService";
 import { useMode } from "../../context/ModeContext";
 
@@ -17,6 +17,7 @@ const BacktestControl: React.FC = () => {
   const [report, setReport] = useState<any | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [symbolsLoading, setSymbolsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("backtest");
 
   const isProcessing = backtestLoading || liveLoading;
 
@@ -35,9 +36,9 @@ const BacktestControl: React.FC = () => {
       if (returnedRunId) {
         setRunId(returnedRunId);
       }
-      setMessage(`Backtest started. runId=${returnedRunId}`);
+      setMessage(`Market Data run started. runId=${returnedRunId}`);
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to start backtest");
+      setMessage(error.response?.data?.message || "Unable to start Market Data run");
     } finally {
       setBacktestLoading(false);
     }
@@ -101,9 +102,9 @@ const BacktestControl: React.FC = () => {
         endTime: endTime || undefined,
       });
       setReport(response.data.data);
-      setMessage("Backtest report loaded");
+      setMessage("Market Data report loaded");
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to load backtest report");
+      setMessage(error.response?.data?.message || "Unable to load Market Data report");
     } finally {
       setReportLoading(false);
     }
@@ -112,76 +113,89 @@ const BacktestControl: React.FC = () => {
   return (
     <Card className="mb-4">
       <Card.Body>
-        <Card.Title>Market Indicator Runner</Card.Title>
-        <Form>
-          <Form.Group className="mb-3" controlId="backtestSymbol">
-            <Form.Label>Symbol</Form.Label>
-            <Form.Select value={symbol} onChange={(e) => setSymbol(e.target.value)} disabled={symbolsLoading}>
-              {symbolsLoading ? <option>Loading symbols...</option> : null}
-              {symbols.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-          <Form.Group className="mb-3" controlId="backtestTimeframe">
-            <Form.Label>Timeframe</Form.Label>
-            <Form.Control value={timeframe} onChange={(e) => setTimeframe(e.target.value)} />
-          </Form.Group>
-          {mode === "backtest" && (
-            <>
-              <Form.Group className="mb-3" controlId="backtestStartTime">
-                <Form.Label>Start Time (optional)</Form.Label>
-                <Form.Control
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
+        <Card.Title>Market Data Control</Card.Title>
+        <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backtest")} className="mb-4">
+          <Tab eventKey="backtest" title="Backtest">
+            <Form>
+              <Form.Group className="mb-3" controlId="backtestSymbol">
+                <Form.Label>Symbol</Form.Label>
+                <Form.Select value={symbol} onChange={(e) => setSymbol(e.target.value)} disabled={symbolsLoading}>
+                  {symbolsLoading ? <option>Loading symbols...</option> : null}
+                  {symbols.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Form.Select>
               </Form.Group>
-              <Form.Group className="mb-3" controlId="backtestEndTime">
-                <Form.Label>End Time (optional)</Form.Label>
-                <Form.Control
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
+              <Form.Group className="mb-3" controlId="backtestTimeframe">
+                <Form.Label>Timeframe</Form.Label>
+                <Form.Control value={timeframe} onChange={(e) => setTimeframe(e.target.value)} />
               </Form.Group>
-              <Form.Group className="mb-3" controlId="backtestRunId">
-                <Form.Label>Run ID (optional)</Form.Label>
-                <Form.Control value={runId} onChange={(e) => setRunId(e.target.value)} placeholder="leave blank to auto-generate" />
-              </Form.Group>
-            </>
-          )}
-          <Stack direction="horizontal" gap={2} className="mb-3">
-            <Button variant="primary" onClick={handleRun} disabled={isProcessing || !symbol}>
-              {mode === "live"
-                ? liveLoading
-                  ? <><Spinner animation="border" size="sm" /> Live…</>
-                  : "Run Live"
-                : backtestLoading
-                  ? <><Spinner animation="border" size="sm" /> Backtest…</>
-                  : "Run Backtest"}
-            </Button>
-            {mode === "backtest" && (
-              <Button variant="secondary" onClick={handleLoadReport} disabled={reportLoading || !symbol}>
-                {reportLoading ? <><Spinner animation="border" size="sm" /> Loading…</> : "Load Report"}
-              </Button>
-            )}
-          </Stack>
-        </Form>
-        {message && <p className="mt-3">{message}</p>}
-        {report && (
-          <div className="mt-4">
-            <h5>Backtest Report</h5>
-            <p>
-              Indicators: {report.indicators?.length ?? 0}, Patterns: {report.patterns?.length ?? 0}
-            </p>
-            <pre style={{ maxHeight: 400, overflow: "auto", background: "#f8f9fa", padding: 12 }}>
-              {JSON.stringify(report, null, 2)}
-            </pre>
-          </div>
-        )}
+              {mode === "backtest" && (
+                <>
+                  <Form.Group className="mb-3" controlId="backtestStartTime">
+                    <Form.Label>Start Time (optional)</Form.Label>
+                    <Form.Control
+                      type="datetime-local"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3" controlId="backtestEndTime">
+                    <Form.Label>End Time (optional)</Form.Label>
+                    <Form.Control
+                      type="datetime-local"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3" controlId="backtestRunId">
+                    <Form.Label>Run ID (optional)</Form.Label>
+                    <Form.Control value={runId} onChange={(e) => setRunId(e.target.value)} placeholder="leave blank to auto-generate" />
+                  </Form.Group>
+                </>
+              )}
+              <Stack direction="horizontal" gap={2} className="mb-3">
+                <Button variant="primary" onClick={handleRun} disabled={isProcessing || !symbol}>
+                  {mode === "live"
+                    ? liveLoading
+                      ? <><Spinner animation="border" size="sm" /> Live…</>
+                      : "Run Live"
+                    : backtestLoading
+                      ? <><Spinner animation="border" size="sm" /> Running…</>
+                      : "Run Market Data"}
+                </Button>
+                {mode === "backtest" && (
+                  <Button variant="secondary" onClick={handleLoadReport} disabled={reportLoading || !symbol}>
+                    {reportLoading ? <><Spinner animation="border" size="sm" /> Loading…</> : "Load Report"}
+                  </Button>
+                )}
+              </Stack>
+              {message && <p className="mt-3">{message}</p>}
+              {report && (
+                <div className="mt-4">
+                  <h5>Market Data Report</h5>
+                  <p>
+                    Indicators: {report.indicators?.length ?? 0}, Patterns: {report.patterns?.length ?? 0}
+                  </p>
+                  <pre style={{ maxHeight: 400, overflow: "auto", background: "#f8f9fa", padding: 12 }}>
+                    {JSON.stringify(report, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </Form>
+          </Tab>
+          <Tab eventKey="chart" title="Chart">
+            <div className="py-4">
+              <h5>Chart View</h5>
+              <p className="text-muted">Select a symbol and run a Market Data process to view chart details here.</p>
+              <div className="border rounded p-3" style={{ minHeight: 260, background: '#ffffff' }}>
+                <p className="mb-0 text-secondary">Chart rendering will appear in this panel.</p>
+              </div>
+            </div>
+          </Tab>
+        </Tabs>
       </Card.Body>
     </Card>
   );

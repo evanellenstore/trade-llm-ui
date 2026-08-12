@@ -21,8 +21,6 @@ const EDISettings = () => {
         return '/admin/edi';
       case 'Jobs':
         return '/admin/jobs';
-      case 'Logs':
-        return '/admin/logs';
       default:
         return '/admin';
     }

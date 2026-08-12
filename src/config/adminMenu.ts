@@ -7,13 +7,8 @@ export interface AdminMenuItem {
 export const adminMenuItems: AdminMenuItem[] = [
   { label: 'Dashboard', icon: '📊', path: '/admin' },
   { label: 'Users', icon: '👥', path: '/admin/users' },
-  { label: 'Broker API Docs', icon: '📡', path: '/admin/broker-api-docs' },
-  { label: 'Trade Flow', icon: '🔄', path: '/admin/edi-transform' },
-  { label: 'Orders', icon: '💳', path: '/admin/transactions' },
+  { label: 'Broker Connect', icon: '📡', path: '/admin/broker-connect' },
+  { label: 'Market Data', icon: '📉', path: '/admin/market-data' },
   { label: 'AI Assist', icon: '⚡', path: '/admin/ai-settings' },
-  { label: 'Prompts', icon: '💬', path: '/admin/prompts' },
-  { label: 'Reports', icon: '📈', path: '/admin/reports' },
-  { label: 'Market Backtest', icon: '📉', path: '/admin/backtest' },
-  { label: 'Audit Log', icon: '📋', path: '/admin/logs' },
   { label: 'Settings', icon: '⚙️', path: '/admin/settings' },
 ];
