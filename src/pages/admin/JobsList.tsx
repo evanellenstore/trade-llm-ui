@@ -14,7 +14,7 @@ const JobsList = () => {
     { id: 4, name: 'Archive Old Docs', type: 'System Job', tenant: 'System', progress: 30, status: 'Queued', startTime: '2026-07-17 16:00' },
   ];
 
-  const navItems = ['Dashboard', 'Tenants', 'Users', 'Documents', 'EDI', 'Jobs', 'Logs'];
+  const navItems = ['Dashboard', 'Tenants', 'Users', 'EDI', 'Jobs', 'Logs'];
 
   const getNavLink = (item: string) => {
     switch (item) {
@@ -24,8 +24,6 @@ const JobsList = () => {
         return '/admin/tenants';
       case 'Users':
         return '/admin/users';
-      case 'Documents':
-        return '/admin/documents';
       case 'EDI':
         return '/admin/edi';
       case 'Jobs':

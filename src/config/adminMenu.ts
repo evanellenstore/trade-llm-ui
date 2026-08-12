@@ -7,7 +7,6 @@ export interface AdminMenuItem {
 export const adminMenuItems: AdminMenuItem[] = [
   { label: 'Dashboard', icon: '📊', path: '/admin' },
   { label: 'Users', icon: '👥', path: '/admin/users' },
-  { label: 'Trade Files', icon: '📄', path: '/admin/documents' },
   { label: 'Broker API Docs', icon: '📡', path: '/admin/broker-api-docs' },
   { label: 'Trade Flow', icon: '🔄', path: '/admin/edi-transform' },
   { label: 'Orders', icon: '💳', path: '/admin/transactions' },

@@ -7,7 +7,6 @@ import AdminLayout from '../components/layout/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import TenantList from '../pages/admin/TenantList';
 import UserList from '../pages/admin/UserList';
-import DocumentList from '../pages/admin/DocumentList';
 import BrokerAngelOneDocs from '../pages/admin/BrokerAngelOne';
 import BrokerLogin from '../pages/admin/BrokerLogin';
 import EDITransform from '../pages/admin/EDITransform';
@@ -71,16 +70,6 @@ const AppRoutes: React.FC = () => (
         <RequireAuth roles={['ADMIN']}>
           <AdminLayout>
             <UserList />
-          </AdminLayout>
-        </RequireAuth>
-      }
-    />
-    <Route
-      path="/admin/documents"
-      element={
-        <RequireAuth roles={['ADMIN']}>
-          <AdminLayout>
-            <DocumentList />
           </AdminLayout>
         </RequireAuth>
       }

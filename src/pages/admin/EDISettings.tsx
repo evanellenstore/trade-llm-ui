@@ -7,7 +7,7 @@ const EDISettings = () => {
   const auth = useContext(AuthContext);
   const username = auth?.user?.username || 'Admin';
 
-  const navItems = ['Dashboard', 'Tenants', 'Users', 'Documents', 'EDI', 'Jobs', 'Logs'];
+  const navItems = ['Dashboard', 'Tenants', 'Users', 'EDI', 'Jobs', 'Logs'];
 
   const getNavLink = (item: string) => {
     switch (item) {
@@ -17,8 +17,6 @@ const EDISettings = () => {
         return '/admin/tenants';
       case 'Users':
         return '/admin/users';
-      case 'Documents':
-        return '/admin/documents';
       case 'EDI':
         return '/admin/edi';
       case 'Jobs':

@@ -15,7 +15,7 @@ const LogsList = () => {
     { id: 5, timestamp: '2026-07-17 16:35:45', level: 'INFO', source: 'Auth-Service', message: 'User amresh logged in successfully' },
   ];
 
-  const navItems = ['Dashboard', 'Tenants', 'Users', 'Documents', 'EDI', 'Jobs', 'Logs'];
+  const navItems = ['Dashboard', 'Tenants', 'Users', 'EDI', 'Jobs', 'Logs'];
 
   const getNavLink = (item: string) => {
     switch (item) {
@@ -25,8 +25,6 @@ const LogsList = () => {
         return '/admin/tenants';
       case 'Users':
         return '/admin/users';
-      case 'Documents':
-        return '/admin/documents';
       case 'EDI':
         return '/admin/edi';
       case 'Jobs':
