@@ -31,6 +31,9 @@ const BrokerAngelOne: React.FC = () => {
   const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set());
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
   const [activeTab, setActiveTab] = useState<'session' | 'fno' | 'subscriptions'>('session');
+  const [currentSubscriptions, setCurrentSubscriptions] = useState<Array<{ token: string; symbol: string }>>([]);
+  const [selectedCurrentRows, setSelectedCurrentRows] = useState<Set<number>>(new Set());
+  const [currentLoading, setCurrentLoading] = useState(false);
 
   const tabItems = [
     { id: 'session', title: 'Broker session', description: 'Authenticate a broker session with TTOP or refresh an existing AngelOne session.' },
@@ -152,7 +155,10 @@ const BrokerAngelOne: React.FC = () => {
     try {
       setSubscriptionSymbols([]);
       setSelectedSubscriptionRows(new Set());
-      const result = await api.get(fnoStockSymbolsEndpoint, { params: { exchange: selectedExchange } });
+      const [result, tokenMap] = await Promise.all([
+        api.get(fnoStockSymbolsEndpoint, { params: { exchange: selectedExchange } }),
+        loadCurrentSubscriptions(selectedExchange),
+      ]);
       if (result.status >= 200 && result.status < 300 && Array.isArray(result.data)) {
         const symbols = result.data as Array<{ symboltoken: string; tradingsymbol: string }>;
         if (symbols.length === 0) {
@@ -160,7 +166,16 @@ const BrokerAngelOne: React.FC = () => {
         } else {
           const rows = symbols.map((item) => ({ token: item.symboltoken, symbol: item.tradingsymbol }));
           setSubscriptionSymbols(rows);
-          setSelectedSubscriptionRows(new Set(rows.map((_, index) => index)));
+          // preselect only those tokens already subscribed
+          if (tokenMap && Object.keys(tokenMap).length > 0) {
+            const pre = new Set<number>();
+            rows.forEach((r, idx) => {
+              if (tokenMap[r.token]) pre.add(idx);
+            });
+            setSelectedSubscriptionRows(pre);
+          } else {
+            setSelectedSubscriptionRows(new Set(rows.map((_, index) => index)));
+          }
           if (!suppressToast) {
             setToastMessage(`Loaded ${symbols.length} FNO symbols for ${selectedExchange}.`);
             setShowToast(true);
@@ -175,6 +190,57 @@ const BrokerAngelOne: React.FC = () => {
       setError(typeof serverMessage === 'string' ? serverMessage : message);
     } finally {
       setLoadingFnoStockSymbols(false);
+    }
+  };
+
+  // Sync selection to tokens currently subscribed
+  const handleSyncSelection = async () => {
+    setError('');
+    try {
+      const tokenMap = await loadCurrentSubscriptions();
+      if (!tokenMap || Object.keys(tokenMap).length === 0) {
+        setToastMessage('No current subscriptions to sync.');
+        setShowToast(true);
+        return;
+      }
+      const pre = new Set<number>();
+      subscriptionSymbols.forEach((r, idx) => {
+        if (tokenMap[r.token]) pre.add(idx);
+      });
+      setSelectedSubscriptionRows(pre);
+    } catch (err) {
+      // loadCurrentSubscriptions will set error
+    }
+  };
+
+  const handleDeleteFromSubmit = async () => {
+    if (selectedSubscriptionRows.size === 0) {
+      setToastMessage('No subscriptions selected to delete');
+      setShowToast(true);
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm('Remove selected subscriptions?')) return;
+    setSubscriptionLoading(true);
+    try {
+      const symbols = Array.from(selectedSubscriptionRows).reduce((acc, index) => {
+        const item = subscriptionSymbols[index];
+        if (item && item.token) acc[item.token] = item.symbol;
+        return acc;
+      }, {} as Record<string, string>);
+      const payload = { exchange: subscriptionExchange, symbols };
+      const result = await api.delete(subscriptionsEndpoint, { data: payload });
+      if (result.status >= 200 && result.status < 300) {
+        setToastMessage('Subscriptions deleted');
+        setShowToast(true);
+        await loadFnoStockSymbols(subscriptionExchange);
+        await loadCurrentSubscriptions(subscriptionExchange);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Delete failed.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -205,7 +271,11 @@ const BrokerAngelOne: React.FC = () => {
   };
 
   useEffect(() => {
-    loadFnoStockSymbols(subscriptionExchange);
+    // Load both FNO symbols and current subscriptions on mount
+    (async () => {
+      await loadFnoStockSymbols(subscriptionExchange);
+      await loadCurrentSubscriptions(subscriptionExchange);
+    })();
   }, []);
 
   useEffect(() => {
@@ -221,6 +291,98 @@ const BrokerAngelOne: React.FC = () => {
     const nextExchange = event.target.value;
     setSubscriptionExchange(nextExchange);
     await loadFnoStockSymbols(nextExchange);
+    await loadCurrentSubscriptions(nextExchange);
+  };
+
+  const loadCurrentSubscriptions = async (exchange?: string): Promise<Record<string, string>> => {
+    const selectedExchange = exchange ?? subscriptionExchange;
+    setCurrentLoading(true);
+    setError('');
+    try {
+      const url = `${subscriptionsEndpoint}?exchange=${encodeURIComponent(selectedExchange)}`;
+      const result = await api.get(url);
+      if (result.status >= 200 && result.status < 300 && result.data) {
+        const data = result.data as any;
+        const tokenMap = data.tokenMap ?? {};
+        const rows = Object.keys(tokenMap).map((t) => ({ token: t, symbol: tokenMap[t] }));
+        setCurrentSubscriptions(rows);
+        setSelectedCurrentRows(new Set());
+        return tokenMap;
+      } else {
+        setCurrentSubscriptions([]);
+        return {};
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load current subscriptions.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+      return {};
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
+
+  const handleUpdateCurrentSubscriptions = async () => {
+    if (selectedCurrentRows.size === 0) {
+      setToastMessage('No subscriptions selected to update');
+      setShowToast(true);
+      return;
+    }
+    setSubscriptionLoading(true);
+    try {
+      const symbols = Array.from(selectedCurrentRows).reduce((acc, index) => {
+        const item = currentSubscriptions[index];
+        if (item && item.token && item.symbol) {
+          acc[item.token] = item.symbol;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      const payload = { exchange: subscriptionExchange, symbols };
+      const result = await api.post(subscriptionsEndpoint, payload);
+      if (result.status >= 200 && result.status < 300) {
+        setToastMessage('Subscriptions updated');
+        setShowToast(true);
+        await loadCurrentSubscriptions();
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Update failed.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleDeleteCurrentSubscriptions = async () => {
+    if (selectedCurrentRows.size === 0) {
+      setToastMessage('No subscriptions selected to delete');
+      setShowToast(true);
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm('Remove selected subscriptions?')) return;
+    setSubscriptionLoading(true);
+    try {
+      const symbols = Array.from(selectedCurrentRows).reduce((acc, index) => {
+        const item = currentSubscriptions[index];
+        if (item && item.token) {
+          acc[item.token] = item.symbol;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      const payload = { exchange: subscriptionExchange, symbols };
+      const result = await api.delete(subscriptionsEndpoint, { data: payload });
+      if (result.status >= 200 && result.status < 300) {
+        setToastMessage('Subscriptions deleted');
+        setShowToast(true);
+        await loadCurrentSubscriptions();
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Delete failed.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+    } finally {
+      setSubscriptionLoading(false);
+    }
   };
 
   const handleSubscriptions = async (event: React.FormEvent) => {
@@ -547,11 +709,18 @@ const BrokerAngelOne: React.FC = () => {
                     {subscriptionLoading ? <span className="spinner" aria-hidden="true" /> : null}
                     {subscriptionLoading ? 'Submitting…' : 'Submit subscriptions'}
                   </button>
-                  <button className="button button-secondary" type="button" onClick={() => {
+                  <button className="button button-outline-primary" type="button" onClick={handleSyncSelection} disabled={currentLoading}>
+                    {currentLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    Sync selection
+                  </button>
+                  <button className="button button-outline-secondary" type="button" onClick={() => {
                     setSelectedSubscriptionRows(new Set());
                     setSubscriptionFormError('');
                   }}>
                     Clear selection
+                  </button>
+                  <button className="button button-danger" type="button" onClick={handleDeleteFromSubmit} disabled={subscriptionLoading}>
+                    Delete selected
                   </button>
                 </div>
               </form>
