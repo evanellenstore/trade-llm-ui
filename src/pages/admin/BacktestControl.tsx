@@ -53,10 +53,23 @@ const BacktestControl: React.FC = () => {
 
   const handleRunLive = async () => {
     setLiveLoading(true);
+    setRunId(null);
     setMessage(null);
     try {
-      const response = await runLive();
+      const response = await runLive({
+        timeframe,
+        startDatetime: toIsoInstant(startTime),
+        endDatetime: toIsoInstant(endTime),
+      });
+      const nextRunId = response?.data?.runId || response?.data?.data?.runId || null;
+      setRunId(nextRunId);
+      setMessage(
+        nextRunId
+          ? `Market Data run started. Run ID: ${nextRunId}`
+          : "Market Data run started."
+      );
     } catch (error: any) {
+      setMessage(error.response?.data?.message || "Unable to start Market Data run");
     } finally {
       setLiveLoading(false);
     }

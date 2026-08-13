@@ -1,14 +1,19 @@
 import { Container, Row, Col, Card, Button, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useContext } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthContext } from '../../auth/AuthContext';
 import './TraderDashboard.css';
+import { runLive } from '../../services/marketService';
 
 const TraderDashboard = () => {
   const auth = useContext(AuthContext);
   const { t } = useTranslation();
   const username = auth?.user?.username || 'Trader';
+  const [liveRunId, setLiveRunId] = useState<string | null>(null);
+  const [liveLoading, setLiveLoading] = useState<boolean>(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   const menuItems = [
     {
@@ -74,6 +79,39 @@ const TraderDashboard = () => {
       {/* Modules */}
       <div className="menu-section">
         <h5 className="section-title mb-3">Store Management</h5>
+
+        {/* Live Run Trigger */}
+        <div className="mb-3 d-flex align-items-center gap-3">
+          <Button
+            variant="danger"
+            onClick={async () => {
+              setLiveLoading(true);
+              setLiveError(null);
+              try {
+                const res = await runLive();
+                const runId = res?.data?.runId || null;
+                setLiveRunId(runId);
+              } catch (err: any) {
+                setLiveError(err?.response?.data?.error || err.message || 'Unknown error');
+                setLiveRunId(null);
+              } finally {
+                setLiveLoading(false);
+              }
+            }}
+            disabled={liveLoading}
+          >
+            {liveLoading ? 'Starting...' : 'Trigger Live Run'}
+          </Button>
+
+          <div>
+            {liveRunId && (
+              <div className="text-success">Live run started: {liveRunId}</div>
+            )}
+            {liveError && (
+              <div className="text-danger">Failed to start live run: {liveError}</div>
+            )}
+          </div>
+        </div>
 
         <Row xs={1} md={2} lg={4} className="g-3">
           {menuItems.map((item, index) => (

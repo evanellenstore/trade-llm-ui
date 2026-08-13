@@ -12,8 +12,8 @@ export const runBacktest = async (payload: BacktestRequest) => {
   return api.post("/market/api/backtest/run", payload);
 };
 
-export const runLive = async () => {
-  return api.post("/market/run-live");
+export const runLive = async (payload?: BacktestRequest) => {
+  return api.post("/market/api/live/run", payload || {});
 };
 
 
