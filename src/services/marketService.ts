@@ -1,7 +1,7 @@
 import api from "./api";
 
 export interface BacktestRequest {
-  symbol: string;
+  symbol?: string;
   timeframe?: string;
   runId?: string;
   startDatetime?: string;
@@ -21,14 +21,14 @@ export const runLive = async () => {
 
 
 export const getBacktestReport = async (payload: {
-  symbol: string;
+  symbol?: string;
   timeframe?: string;
   runId?: string;
   startTime?: string;
   endTime?: string;
 }) => {
   const params = new URLSearchParams();
-  params.append("symbol", payload.symbol);
+  if (payload.symbol) params.append("symbol", payload.symbol);
   if (payload.timeframe) params.append("timeframe", payload.timeframe);
   if (payload.runId) params.append("runId", payload.runId);
   if (payload.startTime) params.append("startTime", payload.startTime);

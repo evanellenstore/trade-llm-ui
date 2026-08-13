@@ -12,6 +12,7 @@ const BacktestControl: React.FC = () => {
   const [liveLoading, setLiveLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<any | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("backtest");
 
@@ -27,6 +28,7 @@ const BacktestControl: React.FC = () => {
 
   const handleRunBacktest = async () => {
     setBacktestLoading(true);
+    setRunId(null);
     setMessage(null);
     try {
       const response = await runBacktest({
@@ -34,7 +36,14 @@ const BacktestControl: React.FC = () => {
         startDatetime: toIsoInstant(startTime),
         endDatetime: toIsoInstant(endTime),
       });
-      setMessage("Market Data run started.");
+
+      const nextRunId = response?.data?.runId || response?.data?.data?.runId || null;
+      setRunId(nextRunId);
+      setMessage(
+        nextRunId
+          ? `Market Data run started. Run ID: ${nextRunId}`
+          : "Market Data run started."
+      );
     } catch (error: any) {
       setMessage(error.response?.data?.message || "Unable to start Market Data run");
     } finally {
@@ -63,6 +72,7 @@ const BacktestControl: React.FC = () => {
 
   const handleModeChange = (newMode: "backtest" | "live") => {
     setMode(newMode);
+    setRunId(null);
     setMessage(null);
     setReport(null);
   };
@@ -133,6 +143,11 @@ const BacktestControl: React.FC = () => {
                 )}
               </Stack>
               {message && <p className="mt-3">{message}</p>}
+              {runId && (
+                <div className="mt-3 mb-2 p-2 border rounded bg-light">
+                  <strong>Run ID:</strong> <code>{runId}</code>
+                </div>
+              )}
               {report && (
                 <div className="mt-4">
                   <h5>Market Data Report</h5>
