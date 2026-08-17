@@ -27,6 +27,7 @@ import Products from '../pages/trader/Products';
 import Inventory from '../pages/trader/Inventory';
 import Billing from '../pages/trader/Billing';
 import TraderRewards from '../pages/trader/TraderRewards';
+import StrategyConfig from '../pages/trader/StrategyConfig';
 
 import LoginPage from '../pages/LoginPage';
 
@@ -189,6 +190,14 @@ const AppRoutes: React.FC = () => (
       element={
         <RequireAuth roles={['TRADER']}>
           <TraderRewards />
+        </RequireAuth>
+      }
+    />
+    <Route
+      path="/trader/strategy-config"
+      element={
+        <RequireAuth roles={['TRADER']}>
+          <StrategyConfig />
         </RequireAuth>
       }
     />

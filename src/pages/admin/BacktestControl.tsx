@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, Card, Form, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
 import { getBacktestReport, runBacktest, runLive } from "../../services/marketService";
 import { useMode } from "../../context/ModeContext";
+import StrategyConfigPage from "../trader/StrategyConfig";
 
 const BacktestControl: React.FC = () => {
   const [timeframe, setTimeframe] = useState("ONE_MINUTE");
@@ -181,6 +182,11 @@ const BacktestControl: React.FC = () => {
               <div className="border rounded p-3" style={{ minHeight: 260, background: '#ffffff' }}>
                 <p className="mb-0 text-secondary">Chart rendering will appear in this panel.</p>
               </div>
+            </div>
+          </Tab>
+          <Tab eventKey="strategy-config" title="Strategy Config">
+            <div className="py-3">
+              <StrategyConfigPage />
             </div>
           </Tab>
         </Tabs>

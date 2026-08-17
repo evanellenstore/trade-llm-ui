@@ -33,6 +33,14 @@ const TraderDashboard = () => {
       color: 'info'
     },
     {
+      title: 'Strategy Config',
+      description: 'Manage trading strategies',
+      icon: '📈',
+      link: '/trader/strategy-config',
+      badge: 'Manage',
+      color: 'secondary'
+    },
+    {
       title: 'Billing',
       description: 'Create invoices & payments',
       icon: '💳',
