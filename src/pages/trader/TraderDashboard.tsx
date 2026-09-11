@@ -17,6 +17,14 @@ const TraderDashboard = () => {
 
   const menuItems = [
     {
+      title: 'Market Analysis',
+      description: 'View the graph and ask AI for analysis',
+      icon: '📉',
+      link: '/trader/market-analysis',
+      badge: 'Analyze',
+      color: 'dark'
+    },
+    {
       title: t('admin.products'),
       description: t('admin.products'),
       icon: '📦',

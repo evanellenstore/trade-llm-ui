@@ -15,19 +15,14 @@ import TransactionTypes from '../pages/admin/TransactionTypes';
 import Profile from '../pages/admin/Profile';
 import JobsList from '../pages/admin/JobsList';
 import FromPurchase from '../pages/admin/FromPurchase';
-import AdminProduct from '../pages/admin/AdminProduct';
-import AdminInventory from '../pages/admin/AdminInventory';
-import AdminCategory from '../pages/admin/AdminCategory';
-import AdminBrand from '../pages/admin/AdminBrand';
-import AdminRewards from '../pages/admin/AdminRewards';
 import BacktestControl from '../pages/admin/BacktestControl';
-
 import TraderDashboard from '../pages/trader/TraderDashboard';
 import Products from '../pages/trader/Products';
 import Inventory from '../pages/trader/Inventory';
 import Billing from '../pages/trader/Billing';
 import TraderRewards from '../pages/trader/TraderRewards';
 import StrategyConfig from '../pages/trader/StrategyConfig';
+import MarketAnalysis from '../pages/trader/MarketAnalysis';
 
 import LoginPage from '../pages/LoginPage';
 
@@ -158,6 +153,14 @@ const AppRoutes: React.FC = () => (
       element={
         <RequireAuth roles={['TRADER']}>
           <TraderDashboard />
+        </RequireAuth>
+      }
+    />
+    <Route
+      path="/trader/market-analysis"
+      element={
+        <RequireAuth roles={['TRADER']}>
+          <MarketAnalysis />
         </RequireAuth>
       }
     />

@@ -39,3 +39,8 @@ export const getBacktestReport = async (payload: {
 export const getSymbols = async () => {
   return api.get("/market/symbols");
 };
+
+export const getCandles = async (symbol: string, timeframe = "ONE_MINUTE", limit = 100) => {
+  return api.get("/market/candles", { params: { symbol, timeframe, limit } });
+};
+

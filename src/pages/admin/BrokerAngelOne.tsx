@@ -27,14 +27,21 @@ const BrokerAngelOne: React.FC = () => {
   const [fnoStockLoading, setFnoStockLoading] = useState(false);
   const [loadingFnoStockSymbols, setLoadingFnoStockSymbols] = useState(false);
   const [subscriptionExchange, setSubscriptionExchange] = useState('NSE');
+  const [subscriptionName, setSubscriptionName] = useState('');
   const [subscriptionSymbols, setSubscriptionSymbols] = useState<Array<{ token: string; symbol: string }>>([]);
   const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set());
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
   const [activeTab, setActiveTab] = useState<'session' | 'fno' | 'subscriptions'>('session');
   const [currentSubscriptions, setCurrentSubscriptions] = useState<Array<{ token: string; symbol: string }>>([]);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<Array<{
+    subscriptionId: string;
+    subscriptionName: string;
+    createdAt: string;
+    symbols: Record<string, string>;
+    active?: boolean;
+  }>>([]);
   const [selectedCurrentRows, setSelectedCurrentRows] = useState<Set<number>>(new Set());
   const [currentLoading, setCurrentLoading] = useState(false);
-
   const tabItems = [
     { id: 'session', title: 'Broker session', description: 'Authenticate a broker session with TTOP or refresh an existing AngelOne session.' },
     { id: 'fno', title: 'FNO master import', description: 'Refresh the broker database with the latest FNO master data before loading symbols.' },
@@ -299,11 +306,12 @@ const BrokerAngelOne: React.FC = () => {
     setCurrentLoading(true);
     setError('');
     try {
-      const url = `${subscriptionsEndpoint}?exchange=${encodeURIComponent(selectedExchange)}`;
+      const url = `${subscriptionsEndpoint}?exchange=${encodeURIComponent(selectedExchange)}&_=${Date.now()}`;
       const result = await api.get(url);
       if (result.status >= 200 && result.status < 300 && result.data) {
         const data = result.data as any;
         const tokenMap = data.tokenMap ?? {};
+        setSubscriptionHistory(Array.isArray(data.subscriptions) ? data.subscriptions : []);
         const rows = Object.keys(tokenMap).map((t) => ({ token: t, symbol: tokenMap[t] }));
         setCurrentSubscriptions(rows);
         setSelectedCurrentRows(new Set());
@@ -319,6 +327,40 @@ const BrokerAngelOne: React.FC = () => {
       return {};
     } finally {
       setCurrentLoading(false);
+    }
+  };
+
+  const handleStartSubscription = async (subscriptionId: string) => {
+    setSubscriptionLoading(true);
+    try {
+      await api.post(`${subscriptionsEndpoint}/${encodeURIComponent(subscriptionId)}/start`);
+      setToastMessage('Subscription started');
+      setShowToast(true);
+      await loadCurrentSubscriptions(subscriptionExchange);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to start subscription.';
+      setError(message);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleDeleteSubscription = async (subscriptionId: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this saved subscription?')) return;
+    setSubscriptionLoading(true);
+    try {
+      await api.delete(`${subscriptionsEndpoint}/${encodeURIComponent(subscriptionId)}`);
+      setSubscriptionHistory((current) => current.filter(
+        (subscription) => subscription.subscriptionId !== subscriptionId,
+      ));
+      setToastMessage('Subscription deleted');
+      setShowToast(true);
+      await loadCurrentSubscriptions(subscriptionExchange);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete subscription.';
+      setError(message);
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -406,6 +448,7 @@ const BrokerAngelOne: React.FC = () => {
 
       const payload = {
         exchange: subscriptionExchange,
+        subscriptionName: subscriptionName.trim() || undefined,
         symbols,
       };
 
@@ -417,6 +460,8 @@ const BrokerAngelOne: React.FC = () => {
         setShowResponseModal(true);
         setToastMessage('Subscription is done');
         setShowToast(true);
+        setSubscriptionName('');
+        await loadCurrentSubscriptions(subscriptionExchange);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Subscriptions update failed.';
@@ -558,6 +603,58 @@ const BrokerAngelOne: React.FC = () => {
                   )}
                 </div>
               </form>
+
+              {subscriptionHistory.length > 0 && (
+                <div className="table-card" style={{ marginTop: '20px' }}>
+                  <div className="table-toolbar">
+                    <strong>Subscription history</strong>
+                    <span className="table-note">{subscriptionHistory.length} saved subscriptions</span>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Subscription ID</th>
+                          <th>Created</th>
+                          <th>Stocks</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptionHistory.map((subscription) => (
+                          <tr key={subscription.subscriptionId}>
+                            <td>{subscription.subscriptionName}</td>
+                            <td>{subscription.subscriptionId}</td>
+                            <td>{new Date(subscription.createdAt).toLocaleString()}</td>
+                            <td>{Object.keys(subscription.symbols ?? {}).length}</td>
+                            <td>
+                              <div className="button-group">
+                                <button
+                                  className="button button-small button-primary"
+                                  type="button"
+                                  disabled={subscriptionLoading}
+                                  onClick={() => void handleStartSubscription(subscription.subscriptionId)}
+                                >
+                                  Start
+                                </button>
+                                <button
+                                  className="button button-small button-danger"
+                                  type="button"
+                                  disabled={subscriptionLoading}
+                                  onClick={() => void handleDeleteSubscription(subscription.subscriptionId)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -623,6 +720,20 @@ const BrokerAngelOne: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubscriptions} className="form-stack">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="subscription-name">Subscription name</label>
+                  <input
+                    id="subscription-name"
+                    className="form-control"
+                    value={subscriptionName}
+                    onChange={(event) => setSubscriptionName(event.target.value)}
+                    placeholder="e.g. Banking watchlist"
+                    maxLength={120}
+                  />
+                  <p className="form-text">
+                    A unique ID and creation time are generated when this subscription is submitted.
+                  </p>
+                </div>
                 <div className="form-row">
                   <div className="form-group">
                     <div className="table-card">
@@ -707,19 +818,11 @@ const BrokerAngelOne: React.FC = () => {
                 <div className="button-group">
                   <button className="button button-primary" type="submit" disabled={subscriptionLoading}>
                     {subscriptionLoading ? <span className="spinner" aria-hidden="true" /> : null}
-                    {subscriptionLoading ? 'Submitting…' : 'Submit subscriptions'}
+                    {subscriptionLoading ? 'Saving…' : 'Submit subscriptions'}
                   </button>
                   <button className="button button-outline-primary" type="button" onClick={handleSyncSelection} disabled={currentLoading}>
                     {currentLoading ? <span className="spinner" aria-hidden="true" /> : null}
                     Sync selection
-                  </button>
-                  <button className="button button-outline-secondary" type="button" onClick={() => {
-                    setSelectedSubscriptionRows(new Set());
-                    setSubscriptionFormError('');
-                  }}>
-                    Clear selection
-                  </button>
-                  <button className="button button-danger" type="button" onClick={handleDeleteFromSubmit} disabled={subscriptionLoading}>
                     Delete selected
                   </button>
                 </div>
@@ -789,6 +892,7 @@ const BrokerAngelOne: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
