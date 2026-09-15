@@ -10,7 +10,7 @@ interface ModeContextType {
 const ModeContext = createContext<ModeContextType | null>(null);
 
 export const ModeProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<Mode>('backtest');
+  const [mode, setMode] = useState<Mode>('live');
 
   return (
     <ModeContext.Provider value={{ mode, setMode }}>
