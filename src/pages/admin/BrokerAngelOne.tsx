@@ -31,7 +31,7 @@ const BrokerAngelOne: React.FC = () => {
   const [subscriptionSymbols, setSubscriptionSymbols] = useState<Array<{ token: string; symbol: string }>>([]);
   const [selectedSubscriptionRows, setSelectedSubscriptionRows] = useState<Set<number>>(new Set());
   const [subscriptionFormError, setSubscriptionFormError] = useState('');
-  const [activeTab, setActiveTab] = useState<'session' | 'fno' | 'subscriptions'>('session');
+  const [activeTab, setActiveTab] = useState<'session' | 'fno' | 'subscriptions' | 'backfill'>('session');
   const [currentSubscriptions, setCurrentSubscriptions] = useState<Array<{ token: string; symbol: string }>>([]);
   const [subscriptionHistory, setSubscriptionHistory] = useState<Array<{
     subscriptionId: string;
@@ -42,10 +42,17 @@ const BrokerAngelOne: React.FC = () => {
   }>>([]);
   const [selectedCurrentRows, setSelectedCurrentRows] = useState<Set<number>>(new Set());
   const [currentLoading, setCurrentLoading] = useState(false);
+  const [backfillFromDate, setBackfillFromDate] = useState('2024-09-16T11:15');
+  const [backfillToDate, setBackfillToDate] = useState('2026-09-16T12:00');
+  const [backfillInterval, setBackfillInterval] = useState('ONE_MINUTE');
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [selectedBackfillRows, setSelectedBackfillRows] = useState<Set<number>>(new Set());
+  const [backfillStatus, setBackfillStatus] = useState<Record<string, 'pending' | 'filled' | 'failed'>>({});
   const tabItems = [
     { id: 'session', title: 'Broker session', description: 'Authenticate a broker session with TTOP or refresh an existing AngelOne session.' },
     { id: 'fno', title: 'FNO master import', description: 'Refresh the broker database with the latest FNO master data before loading symbols.' },
     { id: 'subscriptions', title: 'Broker subscriptions', description: 'Choose an exchange and register broker subscriptions from one panel.' },
+    { id: 'backfill', title: 'Candle backfill', description: 'Load historical candles into the history service for a broker symbol.' },
   ];
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -173,6 +180,8 @@ const BrokerAngelOne: React.FC = () => {
         } else {
           const rows = symbols.map((item) => ({ token: item.symboltoken, symbol: item.tradingsymbol }));
           setSubscriptionSymbols(rows);
+          setSelectedBackfillRows(new Set(rows.map((_, index) => index)));
+          setBackfillStatus({});
           // preselect only those tokens already subscribed
           if (tokenMap && Object.keys(tokenMap).length > 0) {
             const pre = new Set<number>();
@@ -472,6 +481,92 @@ const BrokerAngelOne: React.FC = () => {
     }
   };
 
+  const handleBackfill = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!backfillFromDate || !backfillToDate) {
+        setError('Both from and to dates are required.');
+      setResponse(null);
+      return;
+    }
+
+    if (backfillFromDate >= backfillToDate) {
+      setError('The from date must be earlier than the to date.');
+      setResponse(null);
+      return;
+    }
+
+    setBackfillLoading(true);
+    setError('');
+    setResponse(null);
+    try {
+      const symbolsToBackfill = Array.from(selectedBackfillRows)
+        .map((index) => subscriptionSymbols[index])
+        .filter((item): item is { token: string; symbol: string } => Boolean(item?.token && item.symbol));
+
+      if (symbolsToBackfill.length === 0) {
+        setError('Select at least one symbol to backfill.');
+        return;
+      }
+
+      setBackfillStatus((current) => ({
+        ...current,
+        ...Object.fromEntries(symbolsToBackfill.map((item) => [item.token, 'pending'])),
+      }));
+      const result = await api.post('/history/candles/backfill', {
+        symbols: symbolsToBackfill.map((item) => ({
+          tradingSymbol: item.symbol,
+          symbolToken: item.token,
+        })),
+        fromDate: backfillFromDate.replace('T', ' '),
+        toDate: backfillToDate.replace('T', ' '),
+        interval: backfillInterval,
+        exchange: 'NSE',
+      });
+      const payload = (result.data as { data?: {
+        savedCandles?: number;
+        successfulSymbols?: string[];
+        failedSymbols?: string[];
+      } }).data;
+      const successfulSymbols = payload?.successfulSymbols ?? [];
+      const failures = payload?.failedSymbols ?? [];
+      const successfulTokens = new Set(symbolsToBackfill
+        .filter((item) => successfulSymbols.includes(item.symbol))
+        .map((item) => item.token));
+      const failedTokens = new Set(symbolsToBackfill
+        .filter((item) => failures.includes(item.symbol))
+        .map((item) => item.token));
+      setBackfillStatus((current) => ({
+        ...current,
+        ...Object.fromEntries(symbolsToBackfill.map((item) => [
+          item.token,
+          successfulTokens.has(item.token) ? 'filled' : failedTokens.has(item.token) ? 'failed' : 'pending',
+        ])),
+      }));
+
+      setResponse({
+        status: result.status,
+        payload: {
+          requestedSymbols: symbolsToBackfill.length,
+          savedCandles: payload?.savedCandles ?? 0,
+          successfulSymbols,
+          failedSymbols: failures,
+        },
+      });
+      if (failures.length === 0) {
+        setToastMessage(`Candle backfill completed for ${symbolsToBackfill.length} symbol${symbolsToBackfill.length === 1 ? '' : 's'}.`);
+        setShowToast(true);
+      } else if (failures.length > 0) {
+        setError(`Backfill completed with ${failures.length} failed symbol${failures.length === 1 ? '' : 's'}.`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Candle backfill failed.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+    } finally {
+      setBackfillLoading(false);
+    }
+  };
+
   const renderPayload = () => {
     if (!response) {
       return null;
@@ -544,7 +639,7 @@ const BrokerAngelOne: React.FC = () => {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id as 'session' | 'fno' | 'subscriptions')}
+              onClick={() => setActiveTab(tab.id as 'session' | 'fno' | 'subscriptions' | 'backfill')}
             >
               {tab.title}
             </button>
@@ -824,6 +919,108 @@ const BrokerAngelOne: React.FC = () => {
                     {currentLoading ? <span className="spinner" aria-hidden="true" /> : null}
                     Sync selection
                     Delete selected
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'backfill' && (
+            <div className="tab-section">
+              <div className="section-header section-header-sm">
+                <div>
+                  <h5>Historical candle backfill</h5>
+                  <p className="section-text">Fetch candles from AngelOne and save them in the history service.</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleBackfill} className="form-stack">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="backfill-from-date">From date</label>
+                    <input id="backfill-from-date" type="datetime-local" className="form-control" value={backfillFromDate} onChange={(event) => setBackfillFromDate(event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="backfill-to-date">To date</label>
+                    <input id="backfill-to-date" type="datetime-local" className="form-control" value={backfillToDate} onChange={(event) => setBackfillToDate(event.target.value)} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="backfill-interval">Interval</label>
+                  <select id="backfill-interval" className="form-control" value={backfillInterval} onChange={(event) => setBackfillInterval(event.target.value)}>
+                    <option value="ONE_MINUTE">One minute</option>
+                    <option value="THREE_MINUTE">Three minutes</option>
+                    <option value="FIVE_MINUTE">Five minutes</option>
+                    <option value="TEN_MINUTE">Ten minutes</option>
+                    <option value="FIFTEEN_MINUTE">Fifteen minutes</option>
+                    <option value="THIRTY_MINUTE">Thirty minutes</option>
+                    <option value="ONE_HOUR">One hour</option>
+                    <option value="ONE_DAY">One day</option>
+                  </select>
+                </div>
+                <div className="table-card">
+                  <div className="table-toolbar">
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={subscriptionSymbols.length > 0 && selectedBackfillRows.size === subscriptionSymbols.length}
+                        onChange={() => {
+                          if (selectedBackfillRows.size === subscriptionSymbols.length) {
+                            setSelectedBackfillRows(new Set());
+                          } else {
+                            setSelectedBackfillRows(new Set(subscriptionSymbols.map((_, index) => index)));
+                          }
+                        }}
+                      />
+                      {selectedBackfillRows.size === subscriptionSymbols.length ? 'Unselect all' : 'Select all'}
+                    </label>
+                    <span className="table-note">{subscriptionSymbols.length} {subscriptionSymbols.length === 1 ? 'row' : 'rows'} loaded</span>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th />
+                          <th>Token ID</th>
+                          <th>Symbol Name</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptionSymbols.length === 0 ? (
+                          <tr><td colSpan={4} className="table-empty">Load FNO symbols to choose backfill symbols.</td></tr>
+                        ) : subscriptionSymbols.map((item, index) => (
+                          <tr key={`backfill-${item.token}-${index}`}>
+                            <td className="table-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={selectedBackfillRows.has(index)}
+                                onChange={() => {
+                                  const nextSelected = new Set(selectedBackfillRows);
+                                  if (nextSelected.has(index)) nextSelected.delete(index);
+                                  else nextSelected.add(index);
+                                  setSelectedBackfillRows(nextSelected);
+                                }}
+                              />
+                            </td>
+                            <td>{item.token}</td>
+                            <td>{item.symbol}</td>
+                            <td>
+                              {backfillStatus[item.token] === 'filled' && <span className="badge badge-success">Filled</span>}
+                              {backfillStatus[item.token] === 'pending' && <span className="badge badge-info">Pending</span>}
+                              {backfillStatus[item.token] === 'failed' && <span className="badge badge-danger">Failed</span>}
+                              {!backfillStatus[item.token] && <span className="table-note">Not backfilled</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="button-group">
+                  <button className="button button-primary" type="submit" disabled={backfillLoading}>
+                    {backfillLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    {backfillLoading ? 'Backfilling…' : `Backfill ${selectedBackfillRows.size > 0 ? `${selectedBackfillRows.size} symbols` : 'candles'}`}
                   </button>
                 </div>
               </form>
