@@ -10,6 +10,12 @@ const saveFnoStockEndpoint = '/broker/api/job/saveFNOStock';
 const fnoStockSymbolsEndpoint = '/broker/api/job/fnoStockSymbols';
 const candleStatusEndpoint = '/history/candles/status';
 
+const getCurrentLocalDateTime = () => {
+  const now = new Date();
+  const localOffset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - localOffset).toISOString().slice(0, 16);
+};
+
 const BrokerAngelOne: React.FC = () => {
   const { mode } = useMode();
   const [ttop, setTtop] = useState('');
@@ -44,7 +50,7 @@ const BrokerAngelOne: React.FC = () => {
   const [selectedCurrentRows, setSelectedCurrentRows] = useState<Set<number>>(new Set());
   const [currentLoading, setCurrentLoading] = useState(false);
   const [backfillFromDate, setBackfillFromDate] = useState('2024-09-16T11:15');
-  const [backfillToDate, setBackfillToDate] = useState('2026-09-16T12:00');
+  const [backfillToDate, setBackfillToDate] = useState(getCurrentLocalDateTime);
   const [backfillInterval, setBackfillInterval] = useState('ONE_MINUTE');
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [selectedBackfillRows, setSelectedBackfillRows] = useState<Set<number>>(new Set());
@@ -613,6 +619,67 @@ const BrokerAngelOne: React.FC = () => {
     }
   };
 
+  const handleSyncToCurrent = async () => {
+    const symbolsToSync = Array.from(selectedBackfillRows)
+      .map((index) => subscriptionSymbols[index])
+      .filter((item): item is { token: string; symbol: string } => Boolean(item?.token && item.symbol));
+
+    if (symbolsToSync.length === 0) {
+      setError('Select at least one symbol to sync.');
+      return;
+    }
+
+    const currentDateTime = getCurrentLocalDateTime();
+    const syncSymbols = symbolsToSync
+      .filter((item) => Boolean(backfillStatus[item.token]?.updatedAt))
+      .map((item) => ({
+      tradingSymbol: item.symbol,
+      symbolToken: item.token,
+        fromDate: (backfillStatus[item.token].updatedAt as string).slice(0, 16).replace('T', ' '),
+      }));
+
+    if (syncSymbols.length === 0) {
+      setError('No selected symbols have an Updated date. Nothing to sync.');
+      return;
+    }
+
+    if (syncSymbols.some((item) => item.fromDate >= currentDateTime.replace('T', ' '))) {
+      setError('Each selected symbol must have an Updated date earlier than the current datetime.');
+      return;
+    }
+
+    setBackfillLoading(true);
+    setError('');
+    try {
+      const result = await api.post('/history/candles/sync', {
+        symbols: syncSymbols,
+        toDate: currentDateTime.replace('T', ' '),
+        interval: backfillInterval,
+        exchange: subscriptionExchange,
+      });
+      const payload = (result.data as { data?: {
+        savedCandles?: number;
+        successfulSymbols?: string[];
+        failedSymbols?: string[];
+      } }).data;
+      const failures = payload?.failedSymbols ?? [];
+      setResponse({ status: result.status, payload: payload ?? result.data });
+      if (failures.length === 0) {
+        setToastMessage(`Candle sync completed for ${symbolsToSync.length} symbol${symbolsToSync.length === 1 ? '' : 's'}.`);
+        setShowToast(true);
+      } else {
+        setError(`Sync completed with ${failures.length} failed symbol${failures.length === 1 ? '' : 's'}.`);
+      }
+      await loadBackfillStatus();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Candle sync failed.';
+      const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof serverMessage === 'string' ? serverMessage : message);
+    } finally {
+      setBackfillLoading(false);
+    }
+  };
+
   const renderPayload = () => {
     if (!response) {
       return null;
@@ -1073,6 +1140,10 @@ const BrokerAngelOne: React.FC = () => {
                   <button className="button button-primary" type="submit" disabled={backfillLoading}>
                     {backfillLoading ? <span className="spinner" aria-hidden="true" /> : null}
                     {backfillLoading ? 'Backfilling…' : `Backfill ${selectedBackfillRows.size > 0 ? `${selectedBackfillRows.size} symbols` : 'candles'}`}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => void handleSyncToCurrent()} disabled={backfillLoading || selectedBackfillRows.size === 0}>
+                    {backfillLoading ? <span className="spinner" aria-hidden="true" /> : null}
+                    Sync to current datetime
                   </button>
                 </div>
               </form>
