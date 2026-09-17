@@ -67,16 +67,11 @@ const BacktestControl: React.FC = () => {
     setIndicatorRunId(null);
     setIndicatorMessage(null);
     try {
-      const responses = await Promise.all(
-        selectedSymbols.map((item) => backfillIndicators({
-          symbol: item.symbol,
-          timeframe: indicatorTimeframe,
-        })),
-      );
-      const runIds = responses
-        .map((response) => getIndicatorRunId(response))
-        .filter((runId): runId is string => Boolean(runId));
-      setIndicatorRunId(runIds[0] ?? null);
+      const response = await backfillIndicators({
+        symbolTokens: selectedSymbols.map((item) => item.token),
+        timeframe: indicatorTimeframe,
+      });
+      setIndicatorRunId(getIndicatorRunId(response));
       setIndicatorMessage(`Indicator backfill started for ${selectedSymbols.length} symbol${selectedSymbols.length === 1 ? "" : "s"}.`);
     } catch (error: any) {
       setIndicatorMessage(error.response?.data?.message || "Unable to start selected indicator backfill.");

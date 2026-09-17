@@ -68,7 +68,7 @@ export const getIndicatorBackfillStatus = async (tokens: string[], timeframe: st
 };
 
 export interface IndicatorBackfillRequest {
-  symbol: string;
+  symbolTokens: string[];
   timeframe: string;
   source?: "BACKTEST";
 }
