@@ -44,3 +44,36 @@ export const getCandles = async (symbol: string, timeframe = "ONE_MINUTE", limit
   return api.get("/market/candles", { params: { symbol, timeframe, limit } });
 };
 
+export interface BackfillSymbol {
+  token: string;
+  symbol: string;
+}
+
+export const getFnoStockSymbols = async (exchange = "NSE") => {
+  return api.get("/broker/api/job/fnoStockSymbols", { params: { exchange } });
+};
+
+export const getCandleBackfillStatus = async (tokens: string[], timeframe: string) => {
+  const params = new URLSearchParams();
+  tokens.forEach((token) => params.append("symbolTokens", token));
+  params.set("timeframe", timeframe);
+  return api.get("/history/candles/status", { params });
+};
+
+export interface IndicatorBackfillRequest {
+  symbol: string;
+  timeframe: string;
+  source?: "BACKTEST";
+}
+
+export const backfillIndicators = async (payload: IndicatorBackfillRequest) => {
+  return api.post("/market/indicator/backfill", {
+    ...payload,
+    source: payload.source ?? "BACKTEST",
+  });
+};
+
+export const backfillAllIndicators = async () => {
+  return api.post("/market/indicator/backfill/all");
+};
+
