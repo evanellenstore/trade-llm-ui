@@ -1,151 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { Button, Card, Col, Form, Row, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
 import {
-  backfillAllIndicators,
   backfillIndicators,
   BackfillSymbol,
-  getCandleBackfillStatus,
-  getBacktestReport,
   getFnoStockSymbols,
-  runBacktest,
-  runLive,
+  getIndicatorBackfillStatus,
 } from "../../services/marketService";
-import { useMode } from "../../context/ModeContext";
 import StrategyConfigPage from "../trader/StrategyConfig";
 
 const BacktestControl: React.FC = () => {
-  const [timeframe, setTimeframe] = useState("ONE_MINUTE");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const { mode, setMode } = useMode();
-  const [backtestLoading, setBacktestLoading] = useState(false);
-  const [liveLoading, setLiveLoading] = useState(false);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [report, setReport] = useState<any | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("backtest");
+  const [activeTab, setActiveTab] = useState<string>("indicator-backfill");
   const [indicatorTimeframe, setIndicatorTimeframe] = useState("ONE_MINUTE");
   const [indicatorLoading, setIndicatorLoading] = useState(false);
-  const [indicatorAllLoading, setIndicatorAllLoading] = useState(false);
   const [indicatorRunId, setIndicatorRunId] = useState<string | null>(null);
   const [indicatorMessage, setIndicatorMessage] = useState<string | null>(null);
   const [indicatorSymbols, setIndicatorSymbols] = useState<BackfillSymbol[]>([]);
   const [selectedIndicatorRows, setSelectedIndicatorRows] = useState<Set<number>>(new Set());
-  const [indicatorCandleStatus, setIndicatorCandleStatus] = useState<Record<string, {
-    status: string;
-    candleCount?: number;
+  const [indicatorStatus, setIndicatorStatus] = useState<Record<string, {
+    indicatorCount: number;
     updatedAt?: string;
   }>>({});
 
-  const isProcessing = backtestLoading || liveLoading;
-
-  const toIsoInstant = (dateTimeLocal: string) => {
-    if (!dateTimeLocal) {
-      return undefined;
-    }
-    const date = new Date(dateTimeLocal);
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
-  };
-
-  const handleRunBacktest = async () => {
-    setBacktestLoading(true);
-    setRunId(null);
-    setMessage(null);
-    try {
-      const response = await runBacktest({
-        timeframe,
-        startDatetime: toIsoInstant(startTime),
-        endDatetime: toIsoInstant(endTime),
-      });
-
-      const nextRunId = response?.data?.runId || response?.data?.data?.runId || null;
-      setRunId(nextRunId);
-      setMessage(
-        nextRunId
-          ? `Market Data run started. Run ID: ${nextRunId}`
-          : "Market Data run started."
-      );
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to start Market Data run");
-    } finally {
-      setBacktestLoading(false);
-    }
-  };
-
-  const handleRunLive = async () => {
-    setLiveLoading(true);
-    setRunId(null);
-    setMessage(null);
-    try {
-      const response = await runLive({
-        timeframe,
-        startDatetime: toIsoInstant(startTime),
-        endDatetime: toIsoInstant(endTime),
-      });
-      const nextRunId = response?.data?.runId || response?.data?.data?.runId || null;
-      setRunId(nextRunId);
-      setMessage(
-        nextRunId
-          ? `Market Data run started. Run ID: ${nextRunId}`
-          : "Market Data run started."
-      );
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to start Market Data run");
-    } finally {
-      setLiveLoading(false);
-    }
-  };
-
-  const handleRun = async () => {
-    if (mode === "live") {
-      await handleRunLive();
-    } else {
-      await handleRunBacktest();
-    }
-  };
-
-  const handleModeChange = (newMode: "backtest" | "live") => {
-    setMode(newMode);
-    setRunId(null);
-    setMessage(null);
-    setReport(null);
-  };
-
-  const handleLoadReport = async () => {
-    setReportLoading(true);
-    setMessage(null);
-    try {
-      const response = await getBacktestReport({
-        timeframe,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
-      });
-      setReport(response.data.data);
-      setMessage("Market Data report loaded");
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Unable to load Market Data report");
-    } finally {
-      setReportLoading(false);
-    }
-  };
-
   const getIndicatorRunId = (response: any) => response?.data?.data ?? response?.data?.runId ?? null;
-
-  const handleAllIndicatorBackfill = async () => {
-    setIndicatorAllLoading(true);
-    setIndicatorRunId(null);
-    setIndicatorMessage(null);
-    try {
-      const response = await backfillAllIndicators();
-      setIndicatorRunId(getIndicatorRunId(response));
-      setIndicatorMessage("Indicator backfill for all symbols started.");
-    } catch (error: any) {
-      setIndicatorMessage(error.response?.data?.message || "Unable to start indicator backfill.");
-    } finally {
-      setIndicatorAllLoading(false);
-    }
-  };
 
   const loadIndicatorSymbols = async () => {
     setIndicatorMessage(null);
@@ -156,20 +32,24 @@ const BacktestControl: React.FC = () => {
         tradingsymbol: string;
       }) => ({ token: item.symboltoken, symbol: item.tradingsymbol }));
       setIndicatorSymbols(rows);
-      setSelectedIndicatorRows(new Set(rows.map((_, index) => index)));
+      setSelectedIndicatorRows(new Set());
 
       if (rows.length > 0) {
-        const statusResponse = await getCandleBackfillStatus(
+        const statusResponse = await getIndicatorBackfillStatus(
           rows.map((row) => row.token), indicatorTimeframe);
-        const statusData = statusResponse.data?.data ?? {};
-        setIndicatorCandleStatus(statusData);
+        const statusRows = statusResponse.data?.data ?? [];
+        setIndicatorStatus(Object.fromEntries(statusRows.map((item: {
+          symbolToken: string;
+          indicatorCount: number;
+          updatedAt?: string;
+        }) => [item.symbolToken, item])));
       } else {
-        setIndicatorCandleStatus({});
+        setIndicatorStatus({});
       }
     } catch (error: any) {
       setIndicatorSymbols([]);
       setSelectedIndicatorRows(new Set());
-      setIndicatorCandleStatus({});
+      setIndicatorStatus({});
       setIndicatorMessage(error.response?.data?.message || "Unable to load indicator symbols.");
     }
   };
@@ -216,76 +96,6 @@ const BacktestControl: React.FC = () => {
       <Card.Body>
         <Card.Title>Market Data Control</Card.Title>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backtest")} className="mb-4">
-          <Tab eventKey="backtest" title="Backtest">
-            <Form>
-              <Form.Group className="mb-3" controlId="backtestTimeframe">
-                <Form.Label>Timeframe</Form.Label>
-                <Form.Control value={timeframe} onChange={(e) => setTimeframe(e.target.value)} />
-              </Form.Group>
-              {mode === "backtest" && (
-                <>
-                  <Form.Group className="mb-3" controlId="backtestStartTime">
-                    <Form.Label>Start Time (optional)</Form.Label>
-                    <Form.Control
-                      type="datetime-local"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3" controlId="backtestEndTime">
-                    <Form.Label>End Time (optional)</Form.Label>
-                    <Form.Control
-                      type="datetime-local"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                    />
-                  </Form.Group>
-                </>
-              )}
-              <Stack direction="horizontal" gap={2} className="mb-3">
-                <Button variant="primary" onClick={handleRun} disabled={isProcessing}>
-                  {mode === "live"
-                    ? liveLoading
-                      ? <><Spinner animation="border" size="sm" /> Live…</>
-                      : "Run Live"
-                    : backtestLoading
-                      ? <><Spinner animation="border" size="sm" /> Running…</>
-                      : "Run Market Data"}
-                </Button>
-                {mode === "backtest" && (
-                  <Button variant="secondary" onClick={handleLoadReport} disabled={reportLoading}>
-                    {reportLoading ? <><Spinner animation="border" size="sm" /> Loading…</> : "Load Report"}
-                  </Button>
-                )}
-              </Stack>
-              {message && <p className="mt-3">{message}</p>}
-              {runId && (
-                <div className="mt-3 mb-2 p-2 border rounded bg-light">
-                  <strong>Run ID:</strong> <code>{runId}</code>
-                </div>
-              )}
-              {report && (
-                <div className="mt-4">
-                  <h5>Market Data Report</h5>
-                  <p>
-                    Indicators: {report.indicators?.length ?? 0}, Patterns: {report.patterns?.length ?? 0}
-                  </p>
-                  <pre style={{ maxHeight: 400, overflow: "auto", background: "#f8f9fa", padding: 12 }}>
-                    {JSON.stringify(report, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </Form>
-          </Tab>
-          <Tab eventKey="chart" title="Chart">
-            <div className="py-4">
-              <h5>Chart View</h5>
-              <p className="text-muted">Select a symbol and run a Market Data process to view chart details here.</p>
-              <div className="border rounded p-3" style={{ minHeight: 260, background: '#ffffff' }}>
-                <p className="mb-0 text-secondary">Chart rendering will appear in this panel.</p>
-              </div>
-            </div>
-          </Tab>
           <Tab eventKey="indicator-backfill" title="Indicator Backfill">
             <div className="py-3">
               <h5>Historical indicator backfill</h5>
@@ -343,7 +153,7 @@ const BacktestControl: React.FC = () => {
                       {indicatorSymbols.length === 0 ? (
                         <tr><td colSpan={5} className="text-center text-muted py-4">No symbols loaded.</td></tr>
                       ) : indicatorSymbols.map((item, index) => {
-                        const status = indicatorCandleStatus[item.token];
+                        const status = indicatorStatus[item.token];
                         return (
                           <tr key={`${item.token}-${index}`}>
                             <td>
@@ -361,7 +171,7 @@ const BacktestControl: React.FC = () => {
                             </td>
                             <td>{item.token}</td>
                             <td>{item.symbol}</td>
-                            <td>{status ? `Backfilled (${status.candleCount ?? 0} candles)` : "Not backfilled"}</td>
+                            <td>{status ? `Generated (${status.indicatorCount} indicators)` : "Not generated"}</td>
                             <td>{status?.updatedAt ? new Date(status.updatedAt).toLocaleString() : "-"}</td>
                           </tr>
                         );
@@ -374,20 +184,11 @@ const BacktestControl: React.FC = () => {
                 <Button
                   variant="primary"
                   onClick={() => void handleSelectedIndicatorBackfill()}
-                  disabled={indicatorLoading || indicatorAllLoading}
+                  disabled={indicatorLoading}
                 >
                   {indicatorLoading
                     ? <><Spinner animation="border" size="sm" /> Starting…</>
-                    : `Backfill Selected (${selectedIndicatorRows.size})`}
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => void handleAllIndicatorBackfill()}
-                  disabled={indicatorLoading || indicatorAllLoading}
-                >
-                  {indicatorAllLoading
-                    ? <><Spinner animation="border" size="sm" /> Starting…</>
-                    : "Backfill All"}
+                    : `Backfill Indicator Selected (${selectedIndicatorRows.size})`}
                 </Button>
               </Stack>
               {indicatorMessage && <p className="mt-3">{indicatorMessage}</p>}

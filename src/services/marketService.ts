@@ -60,6 +60,13 @@ export const getCandleBackfillStatus = async (tokens: string[], timeframe: strin
   return api.get("/history/candles/status", { params });
 };
 
+export const getIndicatorBackfillStatus = async (tokens: string[], timeframe: string) => {
+  const params = new URLSearchParams();
+  tokens.forEach((token) => params.append("symbolTokens", token));
+  params.set("timeframe", timeframe);
+  return api.post("/market/indicator/status", null, { params });
+};
+
 export interface IndicatorBackfillRequest {
   symbol: string;
   timeframe: string;
