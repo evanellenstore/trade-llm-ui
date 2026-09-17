@@ -8,6 +8,7 @@ const reloginEndpoint = '/broker/api/angelOne/relogin';
 const subscriptionsEndpoint = '/broker/api/angelOne/subscriptions';
 const saveFnoStockEndpoint = '/broker/api/job/saveFNOStock';
 const fnoStockSymbolsEndpoint = '/broker/api/job/fnoStockSymbols';
+const candleStatusEndpoint = '/history/candles/status';
 
 const BrokerAngelOne: React.FC = () => {
   const { mode } = useMode();
@@ -47,7 +48,11 @@ const BrokerAngelOne: React.FC = () => {
   const [backfillInterval, setBackfillInterval] = useState('ONE_MINUTE');
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [selectedBackfillRows, setSelectedBackfillRows] = useState<Set<number>>(new Set());
-  const [backfillStatus, setBackfillStatus] = useState<Record<string, 'pending' | 'filled' | 'failed'>>({});
+  const [backfillStatus, setBackfillStatus] = useState<Record<string, {
+    status: 'pending' | 'filled' | 'failed' | 'backfilled';
+    candleCount?: number;
+    updatedAt?: string;
+  }>>({});
   const tabItems = [
     { id: 'session', title: 'Broker session', description: 'Authenticate a broker session with TTOP or refresh an existing AngelOne session.' },
     { id: 'fno', title: 'FNO master import', description: 'Refresh the broker database with the latest FNO master data before loading symbols.' },
@@ -180,8 +185,9 @@ const BrokerAngelOne: React.FC = () => {
         } else {
           const rows = symbols.map((item) => ({ token: item.symboltoken, symbol: item.tradingsymbol }));
           setSubscriptionSymbols(rows);
-          setSelectedBackfillRows(new Set(rows.map((_, index) => index)));
+          setSelectedBackfillRows(new Set());
           setBackfillStatus({});
+          void loadBackfillStatus(rows);
           // preselect only those tokens already subscribed
           if (tokenMap && Object.keys(tokenMap).length > 0) {
             const pre = new Set<number>();
@@ -206,6 +212,45 @@ const BrokerAngelOne: React.FC = () => {
       setError(typeof serverMessage === 'string' ? serverMessage : message);
     } finally {
       setLoadingFnoStockSymbols(false);
+    }
+  };
+
+  const loadBackfillStatus = async (rows = subscriptionSymbols) => {
+    if (rows.length === 0) {
+      setBackfillStatus({});
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      rows.forEach((item) => params.append('symbolTokens', item.token));
+      params.set('timeframe', backfillInterval);
+      const result = await api.get(candleStatusEndpoint, {
+        params,
+      });
+      const data = (result.data as { data?: Record<string, {
+        status: 'backfilled';
+        candleCount: number;
+        updatedAt?: string;
+      }> }).data;
+      setBackfillStatus(Object.fromEntries(
+        Object.entries(data ?? {}).map(([token, item]) => [token, {
+          status: item.status,
+          candleCount: item.candleCount,
+          updatedAt: item.updatedAt,
+        }]),
+      ));
+    } catch (err: unknown) {
+      setBackfillStatus({});
+      const message = err instanceof Error ? err.message : 'Unable to load candle status.';
+      setError(message);
+    }
+  };
+
+  const handleTabChange = (tab: 'session' | 'fno' | 'subscriptions' | 'backfill') => {
+    setActiveTab(tab);
+    if (tab === 'backfill') {
+      void loadBackfillStatus(subscriptionSymbols);
     }
   };
 
@@ -510,7 +555,7 @@ const BrokerAngelOne: React.FC = () => {
 
       setBackfillStatus((current) => ({
         ...current,
-        ...Object.fromEntries(symbolsToBackfill.map((item) => [item.token, 'pending'])),
+        ...Object.fromEntries(symbolsToBackfill.map((item) => [item.token, { status: 'pending' }])),
       }));
       const result = await api.post('/history/candles/backfill', {
         symbols: symbolsToBackfill.map((item) => ({
@@ -539,7 +584,7 @@ const BrokerAngelOne: React.FC = () => {
         ...current,
         ...Object.fromEntries(symbolsToBackfill.map((item) => [
           item.token,
-          successfulTokens.has(item.token) ? 'filled' : failedTokens.has(item.token) ? 'failed' : 'pending',
+          { status: successfulTokens.has(item.token) ? 'filled' : failedTokens.has(item.token) ? 'failed' : 'pending' },
         ])),
       }));
 
@@ -558,6 +603,7 @@ const BrokerAngelOne: React.FC = () => {
       } else if (failures.length > 0) {
         setError(`Backfill completed with ${failures.length} failed symbol${failures.length === 1 ? '' : 's'}.`);
       }
+      await loadBackfillStatus();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Candle backfill failed.';
       const serverMessage = (err as { response?: { data?: unknown } })?.response?.data;
@@ -639,7 +685,7 @@ const BrokerAngelOne: React.FC = () => {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id as 'session' | 'fno' | 'subscriptions' | 'backfill')}
+              onClick={() => handleTabChange(tab.id as 'session' | 'fno' | 'subscriptions' | 'backfill')}
             >
               {tab.title}
             </button>
@@ -984,11 +1030,12 @@ const BrokerAngelOne: React.FC = () => {
                           <th>Token ID</th>
                           <th>Symbol Name</th>
                           <th>Status</th>
+                          <th>Updated</th>
                         </tr>
                       </thead>
                       <tbody>
                         {subscriptionSymbols.length === 0 ? (
-                          <tr><td colSpan={4} className="table-empty">Load FNO symbols to choose backfill symbols.</td></tr>
+                          <tr><td colSpan={5} className="table-empty">Load FNO symbols to choose backfill symbols.</td></tr>
                         ) : subscriptionSymbols.map((item, index) => (
                           <tr key={`backfill-${item.token}-${index}`}>
                             <td className="table-checkbox">
@@ -1006,11 +1053,16 @@ const BrokerAngelOne: React.FC = () => {
                             <td>{item.token}</td>
                             <td>{item.symbol}</td>
                             <td>
-                              {backfillStatus[item.token] === 'filled' && <span className="badge badge-success">Filled</span>}
-                              {backfillStatus[item.token] === 'pending' && <span className="badge badge-info">Pending</span>}
-                              {backfillStatus[item.token] === 'failed' && <span className="badge badge-danger">Failed</span>}
+                              {backfillStatus[item.token]?.status === 'filled' && <span className="badge badge-success">Filled</span>}
+                              {backfillStatus[item.token]?.status === 'pending' && <span className="badge badge-info">Pending</span>}
+                              {backfillStatus[item.token]?.status === 'failed' && <span className="badge badge-danger">Failed</span>}
+                              {backfillStatus[item.token]?.status === 'backfilled' && <span className="badge backfill-status-badge">Backfilled</span>}
                               {!backfillStatus[item.token] && <span className="table-note">Not backfilled</span>}
+                              {backfillStatus[item.token]?.candleCount !== undefined && (
+                                <span className="table-note"> ({backfillStatus[item.token].candleCount} candles)</span>
+                              )}
                             </td>
+                            <td>{backfillStatus[item.token]?.updatedAt ? new Date(backfillStatus[item.token].updatedAt as string).toLocaleString() : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
