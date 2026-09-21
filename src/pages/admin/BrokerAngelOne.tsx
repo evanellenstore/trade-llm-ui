@@ -16,6 +16,13 @@ const getCurrentLocalDateTime = () => {
   return new Date(now.getTime() - localOffset).toISOString().slice(0, 16);
 };
 
+const getLocalDateTimeYearsAgo = (years: number) => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - years);
+  const localOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - localOffset).toISOString().slice(0, 16);
+};
+
 const BrokerAngelOne: React.FC = () => {
   const { mode } = useMode();
   const [ttop, setTtop] = useState('');
@@ -49,7 +56,7 @@ const BrokerAngelOne: React.FC = () => {
   }>>([]);
   const [selectedCurrentRows, setSelectedCurrentRows] = useState<Set<number>>(new Set());
   const [currentLoading, setCurrentLoading] = useState(false);
-  const [backfillFromDate, setBackfillFromDate] = useState('2024-09-16T11:15');
+  const [backfillFromDate, setBackfillFromDate] = useState(() => getLocalDateTimeYearsAgo(2));
   const [backfillToDate, setBackfillToDate] = useState(getCurrentLocalDateTime);
   const [backfillInterval, setBackfillInterval] = useState('ONE_MINUTE');
   const [backfillLoading, setBackfillLoading] = useState(false);
