@@ -5,6 +5,8 @@ import {
   BackfillSymbol,
   getFnoStockSymbols,
   getIndicatorBackfillStatus,
+  generateAllTrainingDatasets,
+  generateTrainingDataset,
 } from "../../services/marketService";
 import StrategyConfigPage from "../trader/StrategyConfig";
 
@@ -20,6 +22,10 @@ const BacktestControl: React.FC = () => {
     indicatorCount: number;
     updatedAt?: string;
   }>>({});
+  const [trainingSymbol, setTrainingSymbol] = useState("");
+  const [trainingTimeframe, setTrainingTimeframe] = useState("FIVE_MINUTE");
+  const [trainingLoading, setTrainingLoading] = useState(false);
+  const [trainingMessage, setTrainingMessage] = useState<string | null>(null);
 
   const getIndicatorRunId = (response: any) => response?.data?.data ?? response?.data?.runId ?? null;
 
@@ -197,6 +203,67 @@ const BacktestControl: React.FC = () => {
           <Tab eventKey="strategy-config" title="Strategy Config">
             <div className="py-3">
               <StrategyConfigPage />
+            </div>
+          </Tab>
+          <Tab eventKey="training-dataset" title="Training Dataset">
+            <div className="py-3">
+              <h5>Generate ML training data</h5>
+              <p className="text-muted">Build labeled rows from backtest candles and indicators.</p>
+              <Row className="g-3 mb-3 align-items-end">
+                <Col md={5}>
+                  <Form.Label htmlFor="training-symbol">Symbol</Form.Label>
+                  <Form.Select id="training-symbol" value={trainingSymbol}
+                    onChange={(event) => setTrainingSymbol(event.target.value)}>
+                    <option value="">Select a symbol</option>
+                    {indicatorSymbols.map((item) => <option key={item.token} value={item.symbol}>{item.symbol}</option>)}
+                  </Form.Select>
+                </Col>
+                <Col md={4}>
+                  <Form.Label htmlFor="training-timeframe">Timeframe</Form.Label>
+                  <Form.Select id="training-timeframe" value={trainingTimeframe}
+                    onChange={(event) => setTrainingTimeframe(event.target.value)}>
+                    <option value="ONE_MINUTE">ONE_MINUTE</option>
+                    <option value="FIVE_MINUTE">FIVE_MINUTE</option>
+                    <option value="FIFTEEN_MINUTE">FIFTEEN_MINUTE</option>
+                    <option value="ONE_HOUR">ONE_HOUR</option>
+                  </Form.Select>
+                </Col>
+                <Col md="auto">
+                  <Button variant="primary" disabled={trainingLoading || !trainingSymbol}
+                    onClick={async () => {
+                      setTrainingLoading(true);
+                      setTrainingMessage(null);
+                      try {
+                        const response = await generateTrainingDataset(trainingSymbol, trainingTimeframe);
+                        const result = response.data?.data;
+                        setTrainingMessage(`Generated ${result?.generated ?? 0} of ${result?.processed ?? 0} processed rows.`);
+                      } catch (error: any) {
+                        setTrainingMessage(error.response?.data?.message || "Unable to generate training data.");
+                      } finally {
+                        setTrainingLoading(false);
+                      }
+                    }}>
+                    {trainingLoading ? <><Spinner animation="border" size="sm" /> Generating…</> : "Generate selected"}
+                  </Button>
+                </Col>
+              </Row>
+              <Button variant="outline-primary" disabled={trainingLoading}
+                onClick={async () => {
+                  setTrainingLoading(true);
+                  setTrainingMessage(null);
+                  try {
+                    const response = await generateAllTrainingDatasets();
+                    const result = response.data?.data;
+                    setTrainingMessage(`Generated ${result?.generated ?? 0} of ${result?.processed ?? 0} processed rows across all combinations.`);
+                  } catch (error: any) {
+                    setTrainingMessage(error.response?.data?.message || "Unable to generate all training data.");
+                  } finally {
+                    setTrainingLoading(false);
+                  }
+                }}>
+                Generate all configured combinations
+              </Button>
+              {trainingMessage && <p className="mt-3 mb-0">{trainingMessage}</p>}
             </div>
           </Tab>
         </Tabs>

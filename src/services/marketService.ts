@@ -84,3 +84,11 @@ export const backfillAllIndicators = async () => {
   return api.post("/market/indicator/backfill/all");
 };
 
+export const generateTrainingDataset = async (symbol: string, timeframe: string) => {
+  return api.post("/history/../training/generate", null, { params: { symbol, timeframe } });
+};
+
+export const generateAllTrainingDatasets = async () => {
+  return api.post("/history/../training/generate/all");
+};
+
