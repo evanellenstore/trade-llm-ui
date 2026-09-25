@@ -92,3 +92,43 @@ export const generateAllTrainingDatasets = async () => {
   return api.post("/history/../training/generate/all");
 };
 
+export interface DatasetDiagnosticRequest {
+  symbolToken: string;
+  tradingStyle: "INTRADAY" | "SWING" | "LONG_TERM";
+  timeframe: string;
+  predictionHorizonBars: number;
+  buyThresholdPct: number;
+  sellThresholdPct: number;
+  label?: "BUY" | "HOLD" | "SELL";
+  limit: number;
+}
+
+export interface DatasetDiagnosticSample {
+  candleTime?: string;
+  tradingDate?: string;
+  currentClose?: number;
+  targetCandleTime?: string;
+  targetTradingDate?: string;
+  futureClose?: number;
+  futureReturnPct?: number;
+  buyThresholdPct?: number;
+  sellThresholdPct?: number;
+  label?: string;
+}
+
+export interface DatasetDiagnosticData {
+  symbolToken?: string;
+  tradingStyle?: string;
+  timeframe?: string;
+  predictionHorizonBars?: number;
+  sampleCount: number;
+  samples: DatasetDiagnosticSample[];
+}
+
+export const getDatasetDiagnostics = (payload: DatasetDiagnosticRequest) => {
+  return api.post<{ success: boolean; message: string; data: DatasetDiagnosticData }>(
+    "/ml/api/v1/dataset/samples",
+    payload,
+  );
+};
+

@@ -5,8 +5,10 @@ import {
   BackfillSymbol,
   getFnoStockSymbols,
   getIndicatorBackfillStatus,
+  getDatasetDiagnostics,
   generateAllTrainingDatasets,
   generateTrainingDataset,
+  DatasetDiagnosticData,
 } from "../../services/marketService";
 import StrategyConfigPage from "../trader/StrategyConfig";
 
@@ -26,8 +28,47 @@ const BacktestControl: React.FC = () => {
   const [trainingTimeframe, setTrainingTimeframe] = useState("FIVE_MINUTE");
   const [trainingLoading, setTrainingLoading] = useState(false);
   const [trainingMessage, setTrainingMessage] = useState<string | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
+  const [diagnosticData, setDiagnosticData] = useState<DatasetDiagnosticData | null>(null);
+  const [diagnosticStyle, setDiagnosticStyle] = useState<"INTRADAY" | "SWING" | "LONG_TERM">("SWING");
+  const [diagnosticHorizon, setDiagnosticHorizon] = useState(20);
+  const [diagnosticLabel, setDiagnosticLabel] = useState("");
+  const [diagnosticLimit, setDiagnosticLimit] = useState(20);
 
   const getIndicatorRunId = (response: any) => response?.data?.data ?? response?.data?.runId ?? null;
+
+  const getTrainingSymbolToken = () => {
+    const selected = indicatorSymbols.find((item) => item.symbol === trainingSymbol || item.token === trainingSymbol);
+    return selected?.token ?? trainingSymbol;
+  };
+
+  const loadDatasetDiagnostics = async () => {
+    if (!trainingSymbol) {
+      setDiagnosticMessage("Select a symbol first.");
+      return;
+    }
+    setDiagnosticLoading(true);
+    setDiagnosticMessage(null);
+    try {
+      const response = await getDatasetDiagnostics({
+        symbolToken: getTrainingSymbolToken(),
+        tradingStyle: diagnosticStyle,
+        timeframe: trainingTimeframe,
+        predictionHorizonBars: diagnosticHorizon,
+        buyThresholdPct: 0.15,
+        sellThresholdPct: -0.15,
+        ...(diagnosticLabel ? { label: diagnosticLabel as "BUY" | "HOLD" | "SELL" } : {}),
+        limit: diagnosticLimit,
+      });
+      setDiagnosticData(response.data.data);
+    } catch (error: any) {
+      setDiagnosticData(null);
+      setDiagnosticMessage(error.response?.data?.detail || error.response?.data?.message || "Unable to load dataset diagnostics.");
+    } finally {
+      setDiagnosticLoading(false);
+    }
+  };
 
   const loadIndicatorSymbols = async () => {
     setIndicatorMessage(null);
@@ -264,6 +305,82 @@ const BacktestControl: React.FC = () => {
                 Generate all configured combinations
               </Button>
               {trainingMessage && <p className="mt-3 mb-0">{trainingMessage}</p>}
+              <hr className="my-4" />
+              <h5>Dataset diagnostics</h5>
+              <p className="text-muted">Inspect bounded labeled samples and target-candle lineage before training.</p>
+              <Row className="g-3 align-items-end">
+                <Col md={3}>
+                  <Form.Label htmlFor="diagnostic-style">Trading style</Form.Label>
+                  <Form.Select id="diagnostic-style" value={diagnosticStyle}
+                    onChange={(event) => setDiagnosticStyle(event.target.value as typeof diagnosticStyle)}>
+                    <option value="INTRADAY">INTRADAY</option>
+                    <option value="SWING">SWING</option>
+                    <option value="LONG_TERM">LONG_TERM</option>
+                  </Form.Select>
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="diagnostic-horizon">Horizon bars</Form.Label>
+                  <Form.Control id="diagnostic-horizon" type="number" min={1} value={diagnosticHorizon}
+                    onChange={(event) => setDiagnosticHorizon(Number(event.target.value))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="diagnostic-label">Label</Form.Label>
+                  <Form.Select id="diagnostic-label" value={diagnosticLabel}
+                    onChange={(event) => setDiagnosticLabel(event.target.value)}>
+                    <option value="">All labels</option>
+                    <option value="BUY">BUY</option>
+                    <option value="HOLD">HOLD</option>
+                    <option value="SELL">SELL</option>
+                  </Form.Select>
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="diagnostic-limit">Sample limit</Form.Label>
+                  <Form.Control id="diagnostic-limit" type="number" min={1} max={100} value={diagnosticLimit}
+                    onChange={(event) => setDiagnosticLimit(Math.min(100, Math.max(1, Number(event.target.value))))} />
+                </Col>
+                <Col md="auto">
+                  <Button variant="outline-primary" onClick={() => void loadDatasetDiagnostics()}
+                    disabled={diagnosticLoading || !trainingSymbol}>
+                    {diagnosticLoading ? <><Spinner animation="border" size="sm" /> Loading…</> : "Load diagnostics"}
+                  </Button>
+                </Col>
+              </Row>
+              {diagnosticMessage && <p className="mt-3 mb-0 text-danger">{diagnosticMessage}</p>}
+              {diagnosticData && (
+                <div className="mt-3">
+                  <div className="small text-muted mb-2">
+                    {diagnosticData.symbolToken} · {diagnosticData.timeframe} · {diagnosticData.tradingStyle} · {diagnosticData.sampleCount} samples
+                  </div>
+                  <div className="table-responsive border rounded">
+                    <table className="table table-sm table-hover mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Source candle</th>
+                          <th>Target candle</th>
+                          <th>Close</th>
+                          <th>Future close</th>
+                          <th>Return %</th>
+                          <th>Label</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {diagnosticData.samples.length === 0 ? (
+                          <tr><td colSpan={6} className="text-center text-muted py-3">No diagnostic samples matched.</td></tr>
+                        ) : diagnosticData.samples.map((sample, index) => (
+                          <tr key={`${sample.candleTime}-${index}`}>
+                            <td>{sample.candleTime ? new Date(sample.candleTime).toLocaleString() : "-"}</td>
+                            <td>{sample.targetCandleTime ? new Date(sample.targetCandleTime).toLocaleString() : "-"}</td>
+                            <td>{sample.currentClose?.toFixed(2) ?? "-"}</td>
+                            <td>{sample.futureClose?.toFixed(2) ?? "-"}</td>
+                            <td>{sample.futureReturnPct?.toFixed(3) ?? "-"}</td>
+                            <td><strong>{sample.label ?? "-"}</strong></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </Tab>
         </Tabs>
