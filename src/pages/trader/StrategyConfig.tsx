@@ -143,7 +143,7 @@ const StrategyConfigPage: React.FC = () => {
      Form Handlers
   ======================= */
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.currentTarget;
     if (type === "checkbox") {
       setFormData(prev => ({
@@ -227,7 +227,7 @@ const StrategyConfigPage: React.FC = () => {
 
   return (
     <>
-      <TraderHeader />
+      <TraderHeader title="Strategy Configuration" />
       <Container fluid className="strategy-config-container">
         {/* Header Section */}
         <div className="strategy-header mb-4">
