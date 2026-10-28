@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import axios from "axios";
 import { Badge, Button, Card, Col, Form, Row, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
 import {
@@ -16,8 +16,10 @@ import {
 } from "../../services/marketService";
 import StrategyConfigPage from "../trader/StrategyConfig";
 
+const MLTrainingWorkbench = lazy(() => import("./MLTrainingWorkbench"));
+
 const BacktestControl: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("indicator-backfill");
+  const [activeTab, setActiveTab] = useState<string>("ml-training-workbench");
   const [indicatorTimeframe, setIndicatorTimeframe] = useState("ONE_MINUTE");
   const [indicatorLoading, setIndicatorLoading] = useState(false);
   const [indicatorRunId, setIndicatorRunId] = useState<string | null>(null);
@@ -214,10 +216,15 @@ const BacktestControl: React.FC = () => {
   }, [activeTab, indicatorTimeframe]);
 
   return (
-    <Card className="mb-4">
+    <Card className={`mb-4 ${activeTab === "ml-training-workbench" ? "market-data-workbench-shell" : ""}`}>
       <Card.Body>
         <Card.Title>Market Data Control</Card.Title>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backtest")} className="mb-4">
+          <Tab eventKey="ml-training-workbench" title="ML Training Workbench">
+            <Suspense fallback={<div className="p-4 text-muted">Loading ML workbench…</div>}>
+              <MLTrainingWorkbench />
+            </Suspense>
+          </Tab>
           <Tab eventKey="indicator-backfill" title="Indicator Backfill">
             <div className="py-3">
               <h5>Historical indicator backfill</h5>

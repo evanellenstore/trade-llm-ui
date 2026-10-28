@@ -132,6 +132,78 @@ export const getDatasetDiagnostics = (payload: DatasetDiagnosticRequest) => {
   );
 };
 
+export interface TargetAnalysisRequest {
+  symbolToken: string;
+  tradingStyle: "INTRADAY" | "SWING" | "LONG_TERM";
+  timeframe: string;
+  predictionHorizonsBars: number[];
+  thresholdsPct: number[];
+}
+
+export interface TargetAnalysisThreshold {
+  thresholdPct: number;
+  buy: { count: number; percentage: number };
+  hold: { count: number; percentage: number };
+  sell: { count: number; percentage: number };
+  directional: { count: number; percentage: number };
+  classImbalanceRatio: number | null;
+  majorityClassPct: number;
+  minorityClassPct: number;
+}
+
+export interface TargetAnalysisHorizon {
+  predictionHorizonBars: number;
+  validTargetRows: number;
+  skippedRows: number;
+  returnStatistics: { p50: number; p75: number; p90: number };
+  thresholdAnalysis: TargetAnalysisThreshold[];
+}
+
+export interface TargetAnalysisData {
+  symbolToken: string;
+  tradingStyle: string;
+  timeframe: string;
+  sourceRowCount: number;
+  analysis: TargetAnalysisHorizon[];
+}
+
+export const analyzeTargets = (payload: TargetAnalysisRequest) => {
+  return api.post<{ success: boolean; message: string; data: TargetAnalysisData }>(
+    "/ml/api/v1/dataset/analyze-target",
+    payload,
+  );
+};
+
+export interface MlDatasetRequest {
+  symbolToken: string;
+  tradingStyle: "INTRADAY" | "SWING" | "LONG_TERM";
+  timeframe: string;
+  predictionHorizonBars: number;
+  buyThresholdPct: number;
+  sellThresholdPct: number;
+}
+
+export interface MlDatasetSummary {
+  symbolToken: string;
+  tradingStyle: string;
+  timeframe: string;
+  predictionHorizonBars: number;
+  sourceRowCount: number;
+  datasetRowCount: number;
+  skippedRowCount: number;
+  featureCount: number;
+  labelDistribution: Record<string, number>;
+  trainingEligibility?: { eligible: boolean; reasons: string[] };
+  datasetFingerprint?: string;
+}
+
+export const generateMlDataset = (payload: MlDatasetRequest) => {
+  return api.post<{ success: boolean; message: string; data: MlDatasetSummary }>(
+    "/ml/api/v1/dataset/generate",
+    payload,
+  );
+};
+
 export interface ModelTrainingRequest {
   symbolToken: string;
   tradingStyle: "INTRADAY" | "SWING" | "LONG_TERM";
@@ -159,6 +231,7 @@ export interface ModelTrainingResult {
   status?: string;
   lifecycleStatus?: string;
   modelId?: string;
+  selectedHyperparameters?: Record<string, number | string | boolean>;
   validationStrategy?: string;
   testLocked?: boolean;
   testEvaluated?: boolean;
@@ -167,12 +240,17 @@ export interface ModelTrainingResult {
     folds?: Array<{
       foldNumber: number;
       metrics?: { accuracy?: number; balancedAccuracy?: number; macroF1?: number; logLoss?: number };
+      classMetrics?: Record<string, { precision?: number; recall?: number; f1?: number; support?: number }>;
+      confusionMatrix?: { classOrder?: string[]; matrix?: number[][] };
     }>;
     aggregate?: {
       macroF1?: { mean?: number };
       balancedAccuracy?: { mean?: number };
       logLoss?: { mean?: number };
       worstFold?: number;
+      featureImportance?: {
+        ranking?: Array<{ feature: string; combinedImportancePct?: number }>;
+      };
     };
   };
   outOfFold?: {
@@ -186,21 +264,37 @@ export interface ModelTrainingResult {
       SELL?: { precision?: number; recall?: number; f1?: number };
       HOLD?: { precision?: number; recall?: number; f1?: number };
     };
+    backtests?: Array<{
+      policyType?: string;
+      confidenceThreshold?: number;
+      tradeCount?: number;
+      winRate?: number | null;
+      netReturnPct?: number | null;
+      profitFactor?: number | null;
+      maxDrawdownPct?: number | null;
+      sharpeRatio?: number | null;
+    }>;
     finalCandidateSelection?: {
       eligible?: boolean;
       recommendation?: string;
       selectedPolicy?: {
         tradeCount?: number;
         netReturnPct?: number;
+        winRate?: number;
         profitFactor?: number;
+        maxDrawdownPct?: number;
         reason?: string;
       };
     };
   };
   dataset?: {
+    sourceRowCount?: number;
     datasetRowCount?: number;
+    skippedRowCount?: number;
     featureCount?: number;
+    labelDistribution?: Record<string, number>;
     trainingEligibility?: { eligible?: boolean; reasons?: string[] };
+    datasetFingerprint?: string;
   };
 }
 
