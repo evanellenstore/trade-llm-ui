@@ -132,3 +132,82 @@ export const getDatasetDiagnostics = (payload: DatasetDiagnosticRequest) => {
   );
 };
 
+export interface ModelTrainingRequest {
+  symbolToken: string;
+  tradingStyle: "INTRADAY" | "SWING" | "LONG_TERM";
+  timeframe: string;
+  predictionHorizonBars: number;
+  buyThresholdPct: number;
+  sellThresholdPct: number;
+  trainRatio: number;
+  validationRatio: number;
+  testRatio: number;
+  purgeEnabled: boolean;
+  embargoBars: number;
+  validationStrategy: "WALK_FORWARD";
+  walkForward: {
+    foldCount: number;
+    validationWindowSessions: number;
+    expandingWindow: boolean;
+    sessionAligned: boolean;
+    purgeEnabled: boolean;
+    embargoBars: number;
+  };
+}
+
+export interface ModelTrainingResult {
+  status?: string;
+  lifecycleStatus?: string;
+  modelId?: string;
+  validationStrategy?: string;
+  testLocked?: boolean;
+  testEvaluated?: boolean;
+  walkForward?: {
+    foldCount?: number;
+    folds?: Array<{
+      foldNumber: number;
+      metrics?: { accuracy?: number; balancedAccuracy?: number; macroF1?: number; logLoss?: number };
+    }>;
+    aggregate?: {
+      macroF1?: { mean?: number };
+      balancedAccuracy?: { mean?: number };
+      logLoss?: { mean?: number };
+      worstFold?: number;
+    };
+  };
+  outOfFold?: {
+    predictionCount?: number;
+    overallValidationMetrics?: {
+      coveragePct?: number;
+      directionalPredictionCount?: number;
+      directionalPrecision?: number | null;
+      metrics?: { accuracy?: number; balancedAccuracy?: number; macroF1?: number };
+      BUY?: { precision?: number; recall?: number; f1?: number };
+      SELL?: { precision?: number; recall?: number; f1?: number };
+      HOLD?: { precision?: number; recall?: number; f1?: number };
+    };
+    finalCandidateSelection?: {
+      eligible?: boolean;
+      recommendation?: string;
+      selectedPolicy?: {
+        tradeCount?: number;
+        netReturnPct?: number;
+        profitFactor?: number;
+        reason?: string;
+      };
+    };
+  };
+  dataset?: {
+    datasetRowCount?: number;
+    featureCount?: number;
+    trainingEligibility?: { eligible?: boolean; reasons?: string[] };
+  };
+}
+
+export const trainModel = (payload: ModelTrainingRequest) => {
+  return api.post<{ success: boolean; message: string; data: ModelTrainingResult }>(
+    "/ml/api/v1/model/train",
+    payload,
+  );
+};
+

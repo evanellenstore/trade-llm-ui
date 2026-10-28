@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Button, Card, Col, Form, Row, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
+import axios from "axios";
+import { Badge, Button, Card, Col, Form, Row, Spinner, Stack, Tab, Tabs } from "react-bootstrap";
 import {
   backfillIndicators,
   BackfillSymbol,
@@ -9,6 +10,9 @@ import {
   generateAllTrainingDatasets,
   generateTrainingDataset,
   DatasetDiagnosticData,
+  ModelTrainingRequest,
+  ModelTrainingResult,
+  trainModel,
 } from "../../services/marketService";
 import StrategyConfigPage from "../trader/StrategyConfig";
 
@@ -25,9 +29,27 @@ const BacktestControl: React.FC = () => {
     updatedAt?: string;
   }>>({});
   const [trainingSymbol, setTrainingSymbol] = useState("");
-  const [trainingTimeframe, setTrainingTimeframe] = useState("FIVE_MINUTE");
+  const [trainingTimeframe, setTrainingTimeframe] = useState("ONE_MINUTE");
   const [trainingLoading, setTrainingLoading] = useState(false);
   const [trainingMessage, setTrainingMessage] = useState<string | null>(null);
+  const [modelTrainingLoading, setModelTrainingLoading] = useState(false);
+  const [modelTrainingMessage, setModelTrainingMessage] = useState<string | null>(null);
+  const [modelTrainingResult, setModelTrainingResult] = useState<ModelTrainingResult | null>(null);
+  const [modelTrainingStyle, setModelTrainingStyle] = useState<"INTRADAY" | "SWING" | "LONG_TERM">("INTRADAY");
+  const [modelTrainingHorizon, setModelTrainingHorizon] = useState(30);
+  const [buyThresholdPct, setBuyThresholdPct] = useState(0.5);
+  const [sellThresholdPct, setSellThresholdPct] = useState(-0.5);
+  const [trainRatio, setTrainRatio] = useState(0.7);
+  const [validationRatio, setValidationRatio] = useState(0.15);
+  const [testRatio, setTestRatio] = useState(0.15);
+  const [purgeEnabled, setPurgeEnabled] = useState(true);
+  const [embargoBars, setEmbargoBars] = useState(0);
+  const [walkForwardFoldCount, setWalkForwardFoldCount] = useState(4);
+  const [validationWindowSessions, setValidationWindowSessions] = useState(60);
+  const [expandingWindow, setExpandingWindow] = useState(true);
+  const [sessionAligned, setSessionAligned] = useState(true);
+  const [walkForwardPurgeEnabled, setWalkForwardPurgeEnabled] = useState(true);
+  const [walkForwardEmbargoBars, setWalkForwardEmbargoBars] = useState(0);
   const [diagnosticLoading, setDiagnosticLoading] = useState(false);
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [diagnosticData, setDiagnosticData] = useState<DatasetDiagnosticData | null>(null);
@@ -67,6 +89,64 @@ const BacktestControl: React.FC = () => {
       setDiagnosticMessage(error.response?.data?.detail || error.response?.data?.message || "Unable to load dataset diagnostics.");
     } finally {
       setDiagnosticLoading(false);
+    }
+  };
+
+  const handleModelTraining = async () => {
+    if (!trainingSymbol) {
+      setModelTrainingMessage("Select a symbol first.");
+      return;
+    }
+    if (Math.abs(trainRatio + validationRatio + testRatio - 1) > 0.0001) {
+      setModelTrainingMessage("Train, validation, and test ratios must sum to 1.00.");
+      return;
+    }
+
+    const payload: ModelTrainingRequest = {
+      symbolToken: getTrainingSymbolToken(),
+      tradingStyle: modelTrainingStyle,
+      timeframe: trainingTimeframe,
+      predictionHorizonBars: modelTrainingHorizon,
+      buyThresholdPct,
+      sellThresholdPct,
+      trainRatio,
+      validationRatio,
+      testRatio,
+      purgeEnabled,
+      embargoBars,
+      validationStrategy: "WALK_FORWARD",
+      walkForward: {
+        foldCount: walkForwardFoldCount,
+        validationWindowSessions,
+        expandingWindow,
+        sessionAligned,
+        purgeEnabled: walkForwardPurgeEnabled,
+        embargoBars: walkForwardEmbargoBars,
+      },
+    };
+
+    setModelTrainingLoading(true);
+    setModelTrainingMessage(null);
+    setModelTrainingResult(null);
+    try {
+      const response = await trainModel(payload);
+      const result = response.data?.data;
+      if (response.data?.success && result) {
+        setModelTrainingResult(result);
+        setModelTrainingMessage(response.data.message || "Model training completed.");
+      } else {
+        setModelTrainingMessage(response.data?.message || "The training endpoint responded without a result report.");
+      }
+    } catch (error: unknown) {
+      const responseData = axios.isAxiosError<{ detail?: string; message?: string }>(error)
+        ? error.response?.data
+        : undefined;
+      const status = axios.isAxiosError(error) && error.response?.status
+        ? ` (HTTP ${error.response.status})`
+        : "";
+      setModelTrainingMessage(`${responseData?.detail || responseData?.message || "Unable to train model."}${status}`);
+    } finally {
+      setModelTrainingLoading(false);
     }
   };
 
@@ -128,7 +208,7 @@ const BacktestControl: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "indicator-backfill") {
+    if (activeTab === "indicator-backfill" || activeTab === "training-dataset") {
       void loadIndicatorSymbols();
     }
   }, [activeTab, indicatorTimeframe]);
@@ -305,6 +385,161 @@ const BacktestControl: React.FC = () => {
                 Generate all configured combinations
               </Button>
               {trainingMessage && <p className="mt-3 mb-0">{trainingMessage}</p>}
+              <hr className="my-4" />
+              <h5>Train and validate model</h5>
+              <p className="text-muted">Run walk-forward validation. The locked test set is not evaluated during training.</p>
+              <Row className="g-3 mb-3">
+                <Col md={3}>
+                  <Form.Label htmlFor="model-training-style">Trading style</Form.Label>
+                  <Form.Select id="model-training-style" value={modelTrainingStyle}
+                    onChange={(event) => setModelTrainingStyle(event.target.value as typeof modelTrainingStyle)}>
+                    <option value="INTRADAY">INTRADAY</option>
+                    <option value="SWING">SWING</option>
+                    <option value="LONG_TERM">LONG_TERM</option>
+                  </Form.Select>
+                </Col>
+                <Col md={3}>
+                  <Form.Label htmlFor="model-training-horizon">Prediction horizon (bars)</Form.Label>
+                  <Form.Control id="model-training-horizon" type="number" min={1} value={modelTrainingHorizon}
+                    onChange={(event) => setModelTrainingHorizon(Math.max(1, Number(event.target.value)))} />
+                </Col>
+                <Col md={3}>
+                  <Form.Label htmlFor="model-buy-threshold">Buy threshold (%)</Form.Label>
+                  <Form.Control id="model-buy-threshold" type="number" step="0.01" value={buyThresholdPct}
+                    onChange={(event) => setBuyThresholdPct(Number(event.target.value))} />
+                </Col>
+                <Col md={3}>
+                  <Form.Label htmlFor="model-sell-threshold">Sell threshold (%)</Form.Label>
+                  <Form.Control id="model-sell-threshold" type="number" step="0.01" value={sellThresholdPct}
+                    onChange={(event) => setSellThresholdPct(Number(event.target.value))} />
+                </Col>
+              </Row>
+              <Row className="g-3 mb-3">
+                <Col md={2}>
+                  <Form.Label htmlFor="model-train-ratio">Train ratio</Form.Label>
+                  <Form.Control id="model-train-ratio" type="number" min={0.01} max={0.98} step="0.01" value={trainRatio}
+                    onChange={(event) => setTrainRatio(Number(event.target.value))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="model-validation-ratio">Validation ratio</Form.Label>
+                  <Form.Control id="model-validation-ratio" type="number" min={0.01} max={0.98} step="0.01" value={validationRatio}
+                    onChange={(event) => setValidationRatio(Number(event.target.value))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="model-test-ratio">Test ratio</Form.Label>
+                  <Form.Control id="model-test-ratio" type="number" min={0.01} max={0.98} step="0.01" value={testRatio}
+                    onChange={(event) => setTestRatio(Number(event.target.value))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="model-embargo">Embargo bars</Form.Label>
+                  <Form.Control id="model-embargo" type="number" min={0} value={embargoBars}
+                    onChange={(event) => setEmbargoBars(Math.max(0, Number(event.target.value)))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="model-fold-count">Walk-forward folds</Form.Label>
+                  <Form.Control id="model-fold-count" type="number" min={2} value={walkForwardFoldCount}
+                    onChange={(event) => setWalkForwardFoldCount(Math.max(2, Number(event.target.value)))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Label htmlFor="model-validation-sessions">Validation sessions</Form.Label>
+                  <Form.Control id="model-validation-sessions" type="number" min={1} value={validationWindowSessions}
+                    onChange={(event) => setValidationWindowSessions(Math.max(1, Number(event.target.value)))} />
+                </Col>
+              </Row>
+              <Row className="g-3 mb-3 align-items-end">
+                <Col md={2}>
+                  <Form.Label htmlFor="model-walk-forward-embargo">Walk-forward embargo bars</Form.Label>
+                  <Form.Control id="model-walk-forward-embargo" type="number" min={0} value={walkForwardEmbargoBars}
+                    onChange={(event) => setWalkForwardEmbargoBars(Math.max(0, Number(event.target.value)))} />
+                </Col>
+                <Col md={2}>
+                  <Form.Check type="switch" id="model-purge-enabled" label="Purge enabled" checked={purgeEnabled}
+                    onChange={(event) => setPurgeEnabled(event.target.checked)} />
+                </Col>
+                <Col md={2}>
+                  <Form.Check type="switch" id="model-expanding-window" label="Expanding window" checked={expandingWindow}
+                    onChange={(event) => setExpandingWindow(event.target.checked)} />
+                </Col>
+                <Col md={2}>
+                  <Form.Check type="switch" id="model-session-aligned" label="Session aligned" checked={sessionAligned}
+                    onChange={(event) => setSessionAligned(event.target.checked)} />
+                </Col>
+                <Col md={2}>
+                  <Form.Check type="switch" id="model-walk-forward-purge" label="Walk-forward purge" checked={walkForwardPurgeEnabled}
+                    onChange={(event) => setWalkForwardPurgeEnabled(event.target.checked)} />
+                </Col>
+                <Col md="auto">
+                  <Button variant="primary" onClick={() => void handleModelTraining()}
+                    disabled={modelTrainingLoading || !trainingSymbol}>
+                    {modelTrainingLoading ? <><Spinner animation="border" size="sm" /> Training…</> : "Train model"}
+                  </Button>
+                </Col>
+              </Row>
+              {Math.abs(trainRatio + validationRatio + testRatio - 1) > 0.0001 && (
+                <p className="text-danger small mb-3">Split ratios must add up to 1.00. Current total: {(trainRatio + validationRatio + testRatio).toFixed(2)}</p>
+              )}
+              {modelTrainingMessage && (
+                <p className={`mt-3 mb-0 ${modelTrainingResult ? "" : "text-danger"}`} role="status">{modelTrainingMessage}</p>
+              )}
+              {modelTrainingResult && (() => {
+                const validation = modelTrainingResult.outOfFold?.overallValidationMetrics;
+                const aggregate = modelTrainingResult.walkForward?.aggregate;
+                const selection = modelTrainingResult.outOfFold?.finalCandidateSelection;
+                const formatMetric = (value?: number | null, digits = 3) => value == null ? "-" : value.toFixed(digits);
+                return (
+                  <section className="mt-3 pt-3 border-top" aria-label="Model training results">
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                      <div>
+                        <strong>{modelTrainingResult.modelId || "Training result"}</strong>
+                        <div className="small text-muted">{modelTrainingResult.status || modelTrainingResult.lifecycleStatus} · {modelTrainingResult.validationStrategy || "WALK_FORWARD"}</div>
+                      </div>
+                      <Badge bg={selection?.eligible ? "success" : "danger"}>
+                        {selection?.eligible ? "Candidate eligible" : "Candidate rejected"}
+                      </Badge>
+                    </div>
+                    {selection?.recommendation && <p className="small mb-3">{selection.recommendation}</p>}
+                    <Row className="g-3 mb-3">
+                      <Col sm={6} md={3}><div className="border rounded p-2 h-100"><small className="text-muted d-block">Walk-forward macro F1</small><strong>{formatMetric(aggregate?.macroF1?.mean)}</strong></div></Col>
+                      <Col sm={6} md={3}><div className="border rounded p-2 h-100"><small className="text-muted d-block">Balanced accuracy</small><strong>{formatMetric(aggregate?.balancedAccuracy?.mean)}</strong></div></Col>
+                      <Col sm={6} md={3}><div className="border rounded p-2 h-100"><small className="text-muted d-block">OOF directional precision</small><strong>{formatMetric(validation?.directionalPrecision)}</strong><span className="small text-muted"> ({validation?.directionalPredictionCount ?? 0} directional predictions)</span></div></Col>
+                      <Col sm={6} md={3}><div className="border rounded p-2 h-100"><small className="text-muted d-block">Locked test set</small><strong>{modelTrainingResult.testLocked ? "Locked" : "Not locked"}</strong><span className="small text-muted"> · {modelTrainingResult.testEvaluated ? "evaluated" : "not evaluated"}</span></div></Col>
+                    </Row>
+                    {selection?.selectedPolicy && (
+                      <p className="small mb-3">
+                        Selected policy: {selection.selectedPolicy.tradeCount ?? 0} trades · net return {formatMetric(selection.selectedPolicy.netReturnPct, 2)}% · profit factor {formatMetric(selection.selectedPolicy.profitFactor)}.
+                        {selection.selectedPolicy.reason ? ` ${selection.selectedPolicy.reason}` : ""}
+                      </p>
+                    )}
+                    {modelTrainingResult.dataset?.trainingEligibility?.eligible === false && (
+                      <p className="text-danger small mb-3">
+                        Dataset is marked ineligible: {modelTrainingResult.dataset.trainingEligibility.reasons?.join(", ") || "see training report"}.
+                      </p>
+                    )}
+                    <div className="table-responsive border rounded mb-3">
+                      <table className="table table-sm mb-0">
+                        <thead className="table-light"><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead>
+                        <tbody>
+                          {(["BUY", "HOLD", "SELL"] as const).map((label) => {
+                            const score = validation?.[label];
+                            return <tr key={label}><th scope="row">{label}</th><td>{formatMetric(score?.precision)}</td><td>{formatMetric(score?.recall)}</td><td>{formatMetric(score?.f1)}</td></tr>;
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <details>
+                      <summary className="small">Walk-forward fold metrics ({modelTrainingResult.walkForward?.foldCount ?? modelTrainingResult.walkForward?.folds?.length ?? 0})</summary>
+                      <div className="table-responsive border rounded mt-2">
+                        <table className="table table-sm mb-0">
+                          <thead className="table-light"><tr><th>Fold</th><th>Accuracy</th><th>Balanced accuracy</th><th>Macro F1</th><th>Log loss</th></tr></thead>
+                          <tbody>{modelTrainingResult.walkForward?.folds?.map((fold) => (
+                            <tr key={fold.foldNumber}><th scope="row">{fold.foldNumber}</th><td>{formatMetric(fold.metrics?.accuracy)}</td><td>{formatMetric(fold.metrics?.balancedAccuracy)}</td><td>{formatMetric(fold.metrics?.macroF1)}</td><td>{formatMetric(fold.metrics?.logLoss)}</td></tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </section>
+                );
+              })()}
               <hr className="my-4" />
               <h5>Dataset diagnostics</h5>
               <p className="text-muted">Inspect bounded labeled samples and target-candle lineage before training.</p>
