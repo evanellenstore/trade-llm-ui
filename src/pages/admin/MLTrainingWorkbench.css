@@ -1547,3 +1547,274 @@
     animation: none;
   }
 }
+
+.control-workbench-panel {
+  --workbench-bg: #0c1112;
+  --workbench-panel: #151d1e;
+  --workbench-line: rgba(180, 203, 193, 0.14);
+  --workbench-muted: #94a6a0;
+  --workbench-green: #70e0b0;
+  --workbench-amber: #e9b65e;
+  min-width: 0;
+  padding: 20px;
+  color: #e7efec;
+  background-color: var(--workbench-bg);
+  background-image: linear-gradient(rgba(138, 177, 158, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(138, 177, 158, 0.025) 1px, transparent 1px);
+  background-size: 30px 30px;
+  font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
+}
+
+.control-workbench-panel h5 {
+  margin-bottom: 7px;
+  color: #e7efec;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.control-workbench-panel p,
+.control-workbench-panel .text-muted {
+  color: #94a6a0 !important;
+  font-size: 12px;
+}
+
+.control-workbench-panel .form-label,
+.control-workbench-panel .form-check-label {
+  color: #a4b2ad;
+  font-size: 11px;
+}
+
+.control-workbench-panel .form-control,
+.control-workbench-panel .form-select {
+  min-height: 38px;
+  color: #dce8e2;
+  border-color: rgba(180, 203, 193, 0.22);
+  border-radius: 4px;
+  background-color: #101718;
+  font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
+  font-size: 12px;
+}
+
+.control-workbench-panel .form-control:focus,
+.control-workbench-panel .form-select:focus {
+  color: #e7efec;
+  border-color: rgba(112, 224, 176, 0.65);
+  background-color: #101718;
+  box-shadow: 0 0 0 3px rgba(112, 224, 176, 0.1);
+}
+
+.control-workbench-panel .form-check-input {
+  border-color: rgba(180, 203, 193, 0.4);
+  background-color: #101718;
+}
+
+.control-workbench-panel .form-check-input:checked {
+  border-color: #70e0b0;
+  background-color: #70e0b0;
+}
+
+.control-workbench-panel .btn {
+  min-height: 36px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.control-workbench-panel .btn-primary {
+  color: #092018;
+  border-color: #70e0b0;
+  background-color: #70e0b0;
+}
+
+.control-workbench-panel .btn-primary:hover {
+  color: #092018;
+  border-color: #8de9c1;
+  background-color: #8de9c1;
+}
+
+.control-workbench-panel .btn-outline-secondary,
+.control-workbench-panel .btn-outline-primary {
+  color: #9cdec0;
+  border-color: rgba(112, 224, 176, 0.42);
+}
+
+.control-workbench-panel .btn-outline-secondary:hover,
+.control-workbench-panel .btn-outline-primary:hover {
+  color: #092018;
+  border-color: #70e0b0;
+  background-color: #70e0b0;
+}
+
+.control-workbench-panel .border {
+  border-color: var(--workbench-line) !important;
+}
+
+.control-workbench-panel .bg-light {
+  color: #dce8e2;
+  background-color: rgba(21, 29, 30, 0.96) !important;
+}
+
+.control-workbench-panel .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: #dce8e2;
+  --bs-table-border-color: rgba(180, 203, 193, 0.12);
+  --bs-table-hover-bg: rgba(112, 224, 176, 0.045);
+  --bs-table-hover-color: #e7efec;
+  font-size: 11px;
+}
+
+.control-workbench-panel .table > :not(caption) > * > * {
+  padding: 10px 12px;
+  color: #dce8e2;
+  border-bottom-color: rgba(180, 203, 193, 0.12);
+}
+
+.control-workbench-panel .table tbody tr {
+  color: #dce8e2;
+  background-color: rgba(12, 17, 18, 0.72);
+}
+
+.control-workbench-panel .table tbody tr:nth-child(even) {
+  background-color: rgba(21, 29, 30, 0.94);
+}
+
+.control-workbench-panel .table tbody tr:hover {
+  color: #e7efec;
+  background-color: rgba(112, 224, 176, 0.08);
+}
+
+.control-workbench-panel .table-light {
+  --bs-table-bg: #1b2525;
+  --bs-table-color: #acbbb4;
+}
+
+.control-workbench-panel .strategy-config-container {
+  min-height: 0;
+  padding: 0;
+  color: #e7efec;
+  background: transparent;
+}
+
+.strategy-config-workbench .trader-header-wrapper {
+  display: none;
+}
+
+.strategy-config-workbench .strategy-header,
+.strategy-config-workbench .controls-card,
+.strategy-config-workbench .strategies-card,
+.strategy-config-workbench .empty-state-card,
+.strategy-config-workbench .stat-box {
+  color: #e7efec;
+  border: 1px solid var(--workbench-line);
+  border-radius: 5px;
+  background: rgba(21, 29, 30, 0.94);
+  box-shadow: none;
+}
+
+.strategy-config-workbench .strategy-header {
+  padding: 15px;
+  border-left: 2px solid #70e0b0;
+}
+
+.strategy-config-workbench .strategy-title {
+  color: #e7efec;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.strategy-config-workbench .strategy-subtitle,
+.strategy-config-workbench .priority-value,
+.strategy-config-workbench .stat-label {
+  color: #94a6a0;
+}
+
+.strategy-config-workbench .controls-card .card-body {
+  padding: 13px;
+}
+
+.strategy-config-workbench .strategy-name-cell {
+  color: #70e0b0;
+}
+
+.strategy-config-workbench .table-header {
+  color: #acbbb4;
+  background: #1b2525;
+  font-size: 10px;
+}
+
+.strategy-config-workbench .table-header th {
+  padding: 11px 12px;
+}
+
+.strategy-config-workbench .strategies-table {
+  --bs-table-bg: transparent;
+  --bs-table-color: #dce8e2;
+  --bs-table-border-color: rgba(180, 203, 193, 0.12);
+  --bs-table-hover-bg: rgba(112, 224, 176, 0.045);
+  --bs-table-hover-color: #e7efec;
+  font-size: 11px;
+}
+
+.strategy-config-workbench .filter-select,
+.strategy-config-workbench .sort-select {
+  min-height: 38px;
+  color: #dce8e2;
+  border: 1px solid rgba(180, 203, 193, 0.22);
+  border-radius: 4px;
+  background-color: #101718;
+  font-size: 12px;
+}
+
+.strategy-config-workbench .timeframe-badge {
+  color: #9cdec0;
+  border: 1px solid rgba(112, 224, 176, 0.25);
+  border-radius: 4px;
+  background: rgba(112, 224, 176, 0.08);
+  font-size: 10px;
+}
+
+.strategy-config-workbench .action-btn {
+  min-height: 30px;
+  border: 1px solid var(--workbench-line);
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.strategy-config-workbench .create-strategy-btn,
+.strategy-config-workbench .action-btn.btn-success {
+  color: #092018;
+  border-color: #70e0b0;
+  background: #70e0b0;
+}
+
+.strategy-config-workbench .action-btn.btn-warning {
+  color: #17140d;
+  border-color: #e9b65e;
+  background: #e9b65e;
+}
+
+.strategy-config-workbench .action-btn.btn-info {
+  color: #dce8e2;
+  border-color: rgba(112, 174, 218, 0.5);
+  background: rgba(65, 111, 145, 0.55);
+}
+
+.strategy-config-workbench .action-btn.btn-danger {
+  color: #f28a82;
+  border-color: rgba(240, 120, 112, 0.42);
+  background: rgba(240, 120, 112, 0.12);
+}
+
+.strategy-config-workbench .stat-value {
+  color: #70e0b0;
+  font-size: 22px;
+}
+
+@media (max-width: 760px) {
+  .control-workbench-panel {
+    padding: 14px 10px;
+  }
+
+  .strategy-config-workbench .strategy-header {
+    padding: 12px;
+  }
+}

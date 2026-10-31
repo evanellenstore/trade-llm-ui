@@ -15,6 +15,7 @@ import {
   trainModel,
 } from "../../services/marketService";
 import StrategyConfigPage from "../trader/StrategyConfig";
+import "./MLTrainingWorkbench.css";
 
 const MLTrainingWorkbench = lazy(() => import("./MLTrainingWorkbench"));
 
@@ -210,13 +211,13 @@ const BacktestControl: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "indicator-backfill" || activeTab === "training-dataset") {
+    if (activeTab === "indicator-backfill") {
       void loadIndicatorSymbols();
     }
   }, [activeTab, indicatorTimeframe]);
 
   return (
-    <Card className={`mb-4 ${activeTab === "ml-training-workbench" ? "market-data-workbench-shell" : ""}`}>
+    <Card className="mb-4 market-data-workbench-shell">
       <Card.Body>
         <Card.Title>Market Data Control</Card.Title>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || "backtest")} className="mb-4">
@@ -226,7 +227,7 @@ const BacktestControl: React.FC = () => {
             </Suspense>
           </Tab>
           <Tab eventKey="indicator-backfill" title="Indicator Backfill">
-            <div className="py-3">
+            <div className="workbench-panel control-workbench-panel">
               <h5>Historical indicator backfill</h5>
               <p className="text-muted">
                 Calculate indicators from backtest candles in the market service.
@@ -329,11 +330,11 @@ const BacktestControl: React.FC = () => {
             </div>
           </Tab>
           <Tab eventKey="strategy-config" title="Strategy Config">
-            <div className="py-3">
+            <div className="workbench-panel control-workbench-panel strategy-config-workbench">
               <StrategyConfigPage />
             </div>
           </Tab>
-          <Tab eventKey="training-dataset" title="Training Dataset">
+          {activeTab === "training-dataset" && <Tab eventKey="training-dataset" title="Training Dataset">
             <div className="py-3">
               <h5>Generate ML training data</h5>
               <p className="text-muted">Build labeled rows from backtest candles and indicators.</p>
@@ -624,7 +625,7 @@ const BacktestControl: React.FC = () => {
                 </div>
               )}
             </div>
-          </Tab>
+          </Tab>}
         </Tabs>
       </Card.Body>
     </Card>

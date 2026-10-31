@@ -48,7 +48,6 @@ import {
   TargetAnalysisThreshold,
   trainModel,
 } from "../../services/marketService";
-import "./MLTrainingWorkbench.css";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ChartTooltip, Legend);
 
